@@ -146,7 +146,8 @@
       <button class="btn primary" style="width:100%;justify-content:center" id="auBtn">Entrar</button>
       <div class="authmsg" id="auMsg"></div>
       <div id="auGerenteWrap" style="display:none;border-top:1px solid var(--line);margin-top:16px;padding-top:14px;text-align:center">
-        <div class="hint" style="color:var(--muted);font-size:12px;margin-bottom:8px">Primeiro acesso — ainda não há gerente.</div>
+        <div class="hint" style="color:var(--muted);font-size:12px;margin-bottom:8px">Primeiro acesso — ainda não há gerente. Use o código de setup.</div>
+        <input type="text" id="auSetup" placeholder="Código de setup" style="margin-bottom:8px" />
         <button class="btn" style="width:100%;justify-content:center" id="auGerenteBtn">Criar conta do GERENTE</button>
       </div>
     </div>
@@ -278,8 +279,14 @@ async function rpc(name,args){try{const {data,error}=await sb.rpc(name,args||{})
 /* ---------- AUTH ---------- */
 async function boot(){
   const r=await sb.rpc('gerente_existe'); gerenteExiste=!!(r&&r.data);
-  if(currentUser&&currentUser.token){enterApp();} else {showAuth();}
+  if(currentUser&&currentUser.token){
+    const me=await rpc('whoami',{p_token:currentUser.token});
+    if(!me.ok||me.status!=='ativo'||!me.papel){currentUser=null;saveAuth();showAuth();return;}
+    currentUser={id:me.id,username:me.username,papel:me.papel,token:currentUser.token};saveAuth();
+    enterApp();
+  } else {showAuth();}
 }
+function relogar(){currentUser=null;saveAuth();alert('Sua sessão expirou ou seu acesso mudou. Entre de novo.');location.reload();}
 function showAuth(){
   document.getElementById('appShell').style.display='none';
   document.getElementById('authScreen').style.display='flex';
@@ -309,13 +316,14 @@ async function doAuth(){
 document.getElementById('auGerenteBtn').addEventListener('click',async()=>{
   const u=document.getElementById('auUser').value.trim(), p=document.getElementById('auPass').value, msg=document.getElementById('auMsg');
   if(!u||!p){msg.className='authmsg err';msg.textContent='Preencha usuário e senha pra criar o gerente.';return;}
-  const r=await rpc('criar_gerente',{p_username:u,p_senha:p});
+  const setup=document.getElementById('auSetup').value.trim();
+  const r=await rpc('criar_gerente',{p_username:u,p_senha:p,p_setup:setup});
   if(!r.ok){msg.className='authmsg err';msg.textContent=r.msg||'Erro';return;}
   msg.className='authmsg ok';msg.textContent='Gerente criado! Entrando…';
   const lr=await rpc('login',{p_username:u,p_senha:p});
   if(lr.ok){currentUser={id:lr.id,username:lr.username,papel:lr.papel,token:lr.token};saveAuth();enterApp();}
 });
-document.getElementById('logoutBtn').addEventListener('click',()=>{currentUser=null;saveAuth();gStation=null;enfMaquina=null;if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;}location.reload();});
+document.getElementById('logoutBtn').addEventListener('click',async()=>{try{await rpc('logout',{p_token:currentUser.token});}catch(e){}currentUser=null;saveAuth();gStation=null;enfMaquina=null;if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;}location.reload();});
 
 /* ---------- entrar no app ---------- */
 function enterApp(){
@@ -361,14 +369,14 @@ function openPedidos(){return PEDIDOS.filter(p=>!isFinalizado(p));}
 function pedById(id){return PEDIDOS.find(p=>p.id===id);}
 
 async function bipe(code,stage,operador){
-  const r=await rpc('bipe',{p_codigo:(code||'').trim(),p_stage:stage,p_operador:operador||null});
-  if(r&&r.ok!==undefined){await loadAll();return {ok:!!r.ok,msg:(r.ok?'✓ '+STAGE_LABEL[stage]+' OK → ':'⛔ ')+r.msg};}
+  const r=await rpc('bipe',{p_token:currentUser.token,p_codigo:(code||'').trim(),p_stage:stage,p_operador:operador||null});
+  if(r&&r.ok!==undefined){if(r.ok)await loadAll();return {ok:!!r.ok,msg:(r.ok?'✓ '+STAGE_LABEL[stage]+' OK → ':'⛔ ')+r.msg};}
   return {ok:false,msg:'⛔ '+((r&&r.msg)||'Erro de conexão')};
 }
 async function toggleAdminField(id,field){
   const p=pedById(id);if(!p)return;
-  const {error}=await sb.from('pedidos').update({[field]:!p[field]}).eq('id',id);
-  if(error){alert('Erro: '+error.message);return;} await loadAll();
+  const r=await rpc('set_flag',{p_token:currentUser.token,p_id:id,p_field:field,p_value:!p[field]});
+  if(!r.ok){alert(r.msg||'Erro'); if((r.msg||'').includes('autoriz'))relogar(); return;} await loadAll();
 }
 async function cancelBipe(id,stage){
   const r=await rpc('cancelar_bipe',{p_token:currentUser.token,p_id:id,p_stage:stage});
@@ -574,22 +582,22 @@ function go(v){
   if(v==='estacoes')renderBip();
   if(v==='admin'&&isGerente())loadUsers();
   if(v==='impressao')drawLabel();
+  if(v==='lancar')setNextNumero();
 }
 document.getElementById('tabs').addEventListener('click',e=>{if(e.target.dataset.v)go(e.target.dataset.v);});
 document.getElementById('toggleDone').addEventListener('click',e=>{showDone=!showDone;e.target.textContent=showDone?'Ocultar concluídos':'Mostrar concluídos';renderPainel();});
 document.getElementById('printSelect').addEventListener('change',drawLabel);
 
 /* ---------- lançar ---------- */
-function setNextNumero(){const el=document.getElementById('numeroInput');if(el)el.value=String((PEDIDOS.length||0)+1).padStart(3,'0');}
+function setNextNumero(){const el=document.getElementById('numeroInput');if(!el)return;const nums=PEDIDOS.map(p=>parseInt(p.numero,10)).filter(n=>!isNaN(n));el.value=String((nums.length?Math.max.apply(null,nums):0)+1).padStart(3,'0');}
 document.getElementById('clearNumero').addEventListener('click',()=>{document.getElementById('numeroInput').value='';});
 document.getElementById('formPedido').addEventListener('submit',async e=>{
   e.preventDefault();const f=e.target,btn=document.getElementById('btnCriar');btn.disabled=true;
-  const row={cliente:f.cliente.value.trim(),numero:f.numero.value.trim()||null,ref:f.ref.value.trim()||null,prazo:f.prazo.value||null,obs:f.obs.value.trim()||null};
-  const {data,error}=await sb.from('pedidos').insert(row).select().single();
+  const r=await rpc('criar_pedido',{p_token:currentUser.token,p_cliente:f.cliente.value.trim(),p_numero:f.numero.value.trim()||null,p_ref:f.ref.value.trim()||null,p_prazo:f.prazo.value||null,p_obs:f.obs.value.trim()||null});
   btn.disabled=false;
-  if(error){alert('Erro ao criar pedido: '+error.message);return;}
+  if(!r.ok){alert('Erro ao criar pedido: '+(r.msg||'')); if((r.msg||'').includes('autoriz'))relogar(); return;}
   await loadAll();f.reset();setNextNumero();
-  const sel=document.getElementById('printSelect');sel.value=data.id;go('impressao');
+  const sel=document.getElementById('printSelect');sel.value=r.pedido.id;go('impressao');
 });
 
 boot();
