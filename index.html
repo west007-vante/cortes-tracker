@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Painel de Cortes</title>
+<title>Painel de Cortes — GF Cortes</title>
+<!-- v2-auth -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -13,13 +13,11 @@
     --accent:#2f6bff; --accent-soft:#eaf0ff;
     --green:#15a34a; --green-soft:#e7f6ed; --red:#dc2626; --red-soft:#fdeaea;
     --amber:#b7791f; --amber-soft:#fbf3e3;
-    --radius:16px; --radius-sm:10px;
-    --shadow:0 1px 2px rgba(16,24,40,.04), 0 4px 16px rgba(16,24,40,.06);
+    --radius:16px; --shadow:0 1px 2px rgba(16,24,40,.04), 0 4px 16px rgba(16,24,40,.06);
     --shadow-sm:0 1px 2px rgba(16,24,40,.06);
     --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
   body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
   button{font-family:inherit}
   .app{max-width:1240px;margin:0 auto;padding:20px 22px 80px}
@@ -36,65 +34,48 @@
   .dot.wait{background:var(--amber);box-shadow:0 0 0 4px var(--amber-soft)}
 
   nav.tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:var(--shadow-sm);margin-bottom:22px;overflow-x:auto}
-  nav.tabs button{flex:0 0 auto;border:0;background:transparent;color:var(--muted);padding:9px 16px;border-radius:10px;font-size:13.5px;font-weight:550;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s}
+  nav.tabs button{flex:0 0 auto;border:0;background:transparent;color:var(--muted);padding:9px 16px;border-radius:10px;font-size:13.5px;font-weight:550;cursor:pointer;transition:.15s}
   nav.tabs button:hover{color:var(--ink);background:var(--bg)}
   nav.tabs button.active{background:var(--ink);color:#fff}
 
-  .view{display:none;animation:fade .25s ease}
-  .view.active{display:block}
+  .view{display:none;animation:fade .25s ease} .view.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px}
   .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm)}
-  .stat .k{color:var(--muted);font-size:12.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-  .stat .v{font-size:26px;font-weight:680;letter-spacing:-.02em}
+  .stat .k{color:var(--muted);font-size:12.5px;margin-bottom:6px} .stat .v{font-size:26px;font-weight:680;letter-spacing:-.02em}
   .stat .v.warn{color:var(--amber);font-size:18px}
 
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
   .card .head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
-  .card .head h2{font-size:15px;margin:0;font-weight:620}
-  .card .head .sub{color:var(--muted);font-size:12.5px}
+  .card .head h2{font-size:15px;margin:0;font-weight:620} .card .head .sub{color:var(--muted);font-size:12.5px}
 
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;color:var(--muted);font-weight:550;font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:#fafbfc}
   td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
-  tbody tr:last-child td{border-bottom:0}
-  tbody tr:hover{background:#fafbff}
-  td.cli{font-weight:600}
-  .ref{color:var(--muted)}
+  tbody tr:last-child td{border-bottom:0} tbody tr:hover{background:#fafbff}
+  td.cli{font-weight:600} .ref{color:var(--muted)}
   .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--muted)}
 
   .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
-  .pill.sim{background:var(--green-soft);color:var(--green)}
-  .pill.nao{background:var(--red-soft);color:var(--red)}
+  .pill.sim{background:var(--green-soft);color:var(--green)} .pill.nao{background:var(--red-soft);color:var(--red)}
   .pill.pend{background:var(--amber-soft);color:var(--amber)}
-  .pill.tog{cursor:pointer;border:1px dashed transparent}
-  .pill.tog:hover{border-color:currentColor;opacity:.9}
+  .pill.tog{cursor:pointer;border:1px dashed transparent} .pill.tog:hover{border-color:currentColor;opacity:.9}
   .ord{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:8px;background:var(--bg);font-weight:650;font-size:12px;color:var(--muted)}
-  .ord.hot{background:var(--red-soft);color:var(--red)}
-  .prazo.late{color:var(--red);font-weight:600}
+  .ord.hot{background:var(--red-soft);color:var(--red)} .prazo.late{color:var(--red);font-weight:600}
 
   .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 15px;border-radius:10px;font-size:13px;font-weight:550;cursor:pointer;box-shadow:var(--shadow-sm);transition:.15s;display:inline-flex;align-items:center;gap:7px}
-  .btn:hover{background:var(--bg)}
-  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .btn.primary:hover{opacity:.9}
-  .btn.danger{color:var(--red);border-color:var(--red-soft)}
-  .btn.ghost{background:transparent;box-shadow:none}
-  .btn:active{transform:scale(.985)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn:hover{background:var(--bg)} .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)} .btn.primary:hover{opacity:.9}
+  .btn.danger{color:var(--red);border-color:var(--red-soft)} .btn.ghost{background:transparent;box-shadow:none}
+  .btn:active{transform:scale(.985)} .btn:disabled{opacity:.5;cursor:not-allowed} .btn.sm{padding:6px 10px;font-size:12px}
 
   .form{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;padding:20px}
-  .field{display:flex;flex-direction:column;gap:6px}
-  .field.full{grid-column:1/-1}
-  .field label{font-size:12.5px;color:var(--muted);font-weight:550}
-  .field .hint{font-size:11.5px;color:var(--muted)}
-  input[type=text],input[type=date],textarea,select{font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;transition:.15s;width:100%}
+  .field{display:flex;flex-direction:column;gap:6px} .field.full{grid-column:1/-1}
+  .field label{font-size:12.5px;color:var(--muted);font-weight:550} .field .hint{font-size:11.5px;color:var(--muted)}
+  input[type=text],input[type=password],input[type=date],textarea,select{font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;transition:.15s;width:100%}
   input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  textarea{resize:vertical;min-height:64px}
-  .row-inline{display:flex;gap:8px;align-items:center}
-
-  .empty{padding:48px 20px;text-align:center;color:var(--muted)}
-  .empty .big{font-size:15px;color:var(--ink);font-weight:600;margin-bottom:4px}
+  textarea{resize:vertical;min-height:64px} .row-inline{display:flex;gap:8px;align-items:center}
+  .empty{padding:48px 20px;text-align:center;color:var(--muted)} .empty .big{font-size:15px;color:var(--ink);font-weight:600;margin-bottom:4px}
 
   .board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
   .col{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;min-height:120px}
@@ -102,101 +83,103 @@
   .col .colhead .badge{background:var(--bg);color:var(--muted);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
   .col .body{padding:12px;display:flex;flex-direction:column;gap:10px}
   .tk{border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--surface);box-shadow:var(--shadow-sm)}
-  .tk .cli{font-weight:620;font-size:13.5px}
-  .tk .meta{color:var(--muted);font-size:12px;margin-top:2px;display:flex;justify-content:space-between;gap:8px}
+  .tk .cli{font-weight:620;font-size:13.5px} .tk .meta{color:var(--muted);font-size:12px;margin-top:2px;display:flex;justify-content:space-between;gap:8px}
   .col.c-risco .colhead{color:#7a4ad8}.col.c-enf .colhead{color:#185fa5}.col.c-cor .colhead{color:var(--amber)}.col.c-pr .colhead{color:var(--green)}
 
-  .stations{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  .station{cursor:pointer;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);padding:18px;text-align:center;box-shadow:var(--shadow-sm);transition:.15s}
-  .station:hover{border-color:var(--accent)}
-  .station .t{font-weight:650;font-size:15px}
-  .station .d{font-size:12px;color:var(--muted);margin-top:3px}
-  .scanbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;text-align:center}
-  .scanbox input{font-size:20px;text-align:center;letter-spacing:.05em;max-width:360px;margin:14px auto 0}
-  .scanmsg{margin-top:16px;min-height:24px;font-weight:600}
-  .scanmsg.ok{color:var(--green)}.scanmsg.err{color:var(--red)}
+  .bigchoice{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;max-width:640px;margin:0 auto}
+  .choice{cursor:pointer;background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:26px 18px;text-align:center;box-shadow:var(--shadow-sm);transition:.15s}
+  .choice:hover{border-color:var(--accent)} .choice .t{font-weight:680;font-size:17px} .choice .d{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .choice.azul{border-color:#185fa5} .choice.azul .t{color:#185fa5} .choice.preta{border-color:#0f1729} .choice.preta .t{color:#0f1729}
+  .scanbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:30px 24px;text-align:center;max-width:560px;margin:0 auto}
+  .scanbox input{font-size:22px;text-align:center;letter-spacing:.05em;max-width:380px;margin:16px auto 0}
+  .scanmsg{margin-top:18px;min-height:26px;font-weight:600;font-size:15px} .scanmsg.ok{color:var(--green)}.scanmsg.err{color:var(--red)}
+  .stationbadge{font-size:20px;font-weight:680}
 
   .labelwrap{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;padding:20px}
-  .label{width:300px;border:1px dashed #cbd2de;border-radius:12px;padding:16px;text-align:center;background:#fff}
-  .label .lcli{font-weight:700;font-size:16px}
-  .label .lref{color:#444;font-size:12.5px;margin:2px 0 10px}
-  .label svg{max-width:100%}
-  .label .lqr{display:flex;justify-content:center;margin-top:10px}
-  .label .lfoot{display:flex;justify-content:space-between;font-size:11px;color:#555;margin-top:10px;border-top:1px solid #eee;padding-top:8px}
+  .label{width:100mm;height:30mm;border:1px dashed #cbd2de;background:#fff;padding:1.5mm 2.5mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+  .label .lhead{display:flex;justify-content:space-between;font-size:3.2mm;font-weight:700;line-height:1.1}
+  .label svg{width:100%;height:15mm;display:block}
+  .label .lfoot{display:flex;justify-content:space-between;font-size:2.6mm;color:#333}
+
+  .timelog{max-height:340px;overflow:auto}
+  .logrow{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13px;gap:10px} .logrow:last-child{border-bottom:0}
+  .logrow .when{font-family:ui-monospace,monospace;color:var(--muted);font-size:12px;margin-right:10px} .logrow .stg{font-weight:600}
 
   .gargalo{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:20px}
   .gbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm)}
   .gbar .gname{font-weight:620;font-size:14px;display:flex;justify-content:space-between;align-items:center}
-  .gbar .gtime{font-size:24px;font-weight:680;margin:8px 0 10px;letter-spacing:-.02em}
-  .gbar .track{height:8px;background:var(--bg);border-radius:999px;overflow:hidden}
-  .gbar .fill{height:100%;border-radius:999px;background:var(--accent)}
-  .gbar.max{border-color:var(--amber);background:var(--amber-soft)}
-  .gbar.max .fill{background:var(--amber)}
+  .gbar .gtime{font-size:24px;font-weight:680;margin:8px 0 10px} .gbar .track{height:8px;background:var(--bg);border-radius:999px;overflow:hidden}
+  .gbar .fill{height:100%;border-radius:999px;background:var(--accent)} .gbar.max{border-color:var(--amber);background:var(--amber-soft)} .gbar.max .fill{background:var(--amber)}
 
-  .timelog{max-height:340px;overflow:auto}
-  .logrow{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13px;gap:10px}
-  .logrow:last-child{border-bottom:0}
-  .logrow .when{font-family:ui-monospace,monospace;color:var(--muted);font-size:12px;margin-right:10px}
-  .logrow .stg{font-weight:600}
+  .authwrap{min-height:88vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .authcard{width:100%;max-width:380px}
+  .authcard .logo{width:48px;height:48px;border-radius:13px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;margin:0 auto 14px}
+  .authcard h1{font-size:20px;text-align:center;margin:0 0 4px;font-weight:650} .authcard .subt{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+  .authtabs{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:5px;margin-bottom:18px}
+  .authtabs button{flex:1;border:0;background:transparent;padding:9px;border-radius:9px;font-size:13.5px;font-weight:550;color:var(--muted);cursor:pointer}
+  .authtabs button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+  .authmsg{font-size:13px;margin-top:12px;text-align:center;min-height:18px} .authmsg.err{color:var(--red)} .authmsg.ok{color:var(--green)}
 
-  .adminlock{padding:40px;text-align:center}
-  .adminlock input{max-width:200px;margin:14px auto 0;text-align:center;letter-spacing:.3em;font-size:18px}
-
-  @media(max-width:880px){
-    .form{grid-template-columns:1fr}
-    .board{grid-template-columns:1fr 1fr}
-    .stations{grid-template-columns:1fr}
-    .gargalo{grid-template-columns:1fr}
-    table{font-size:12px}
-  }
+  @media(max-width:880px){.form{grid-template-columns:1fr}.board{grid-template-columns:1fr 1fr}.gargalo{grid-template-columns:1fr}table{font-size:12px}}
   @media print{
-    body *{visibility:hidden}
-    #printArea,#printArea *{visibility:visible}
-    #printArea{position:absolute;left:0;top:0;width:100%}
-    .label{border:none}
+    @page{size:100mm 30mm;margin:0}
+    body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
+    #printArea{position:absolute;left:0;top:0} .label{border:none}
   }
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- ============ AUTH ============ -->
+<div class="authwrap" id="authScreen" style="display:none">
+  <div class="authcard">
+    <div class="logo">C</div>
+    <h1>Painel de Cortes</h1>
+    <div class="subt">GF Cortes — entre pra continuar</div>
+    <div class="card" style="padding:20px">
+      <div class="authtabs" id="authTabs">
+        <button data-a="login" class="active">Entrar</button>
+        <button data-a="signup">Criar conta</button>
+      </div>
+      <div class="field" style="margin-bottom:12px"><label>Usuário</label><input type="text" id="auUser" autocomplete="username" /></div>
+      <div class="field" style="margin-bottom:16px"><label>Senha</label><input type="password" id="auPass" autocomplete="current-password" /></div>
+      <button class="btn primary" style="width:100%;justify-content:center" id="auBtn">Entrar</button>
+      <div class="authmsg" id="auMsg"></div>
+      <div id="auGerenteWrap" style="display:none;border-top:1px solid var(--line);margin-top:16px;padding-top:14px;text-align:center">
+        <div class="hint" style="color:var(--muted);font-size:12px;margin-bottom:8px">Primeiro acesso — ainda não há gerente.</div>
+        <button class="btn" style="width:100%;justify-content:center" id="auGerenteBtn">Criar conta do GERENTE</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="app" id="appShell" style="display:none">
   <header class="top">
     <div class="brand">
       <div class="logo">C</div>
-      <div>
-        <h1>Painel de Cortes</h1>
-        <p>Rastreio de produção por bipe — João</p>
-      </div>
+      <div><h1>Painel de Cortes</h1><p id="roleLine">—</p></div>
     </div>
     <div class="pillrow">
       <div class="scanpill" id="connPill"><span class="dot wait" id="connDot"></span> conectando…</div>
-      <div class="scanpill" id="scanIndicator"><span class="dot"></span> —</div>
+      <div class="scanpill" id="scanIndicator" style="display:none"><span class="dot"></span> —</div>
+      <button class="btn sm ghost" id="logoutBtn">Sair</button>
     </div>
   </header>
 
-  <nav class="tabs" id="tabs">
-    <button data-v="painel" class="active">Painel</button>
-    <button data-v="board">Quadro</button>
-    <button data-v="lancar">Lançar pedido</button>
-    <button data-v="impressao">Impressão</button>
-    <button data-v="estacoes">Estações de bipe</button>
-    <button data-v="gargalo">Gargalo</button>
-    <button data-v="admin">Admin</button>
-  </nav>
+  <nav class="tabs" id="tabs"></nav>
 
-  <section class="view active" id="v-painel">
+  <section class="view" id="v-painel">
     <div class="stats" id="stats"></div>
     <div class="card" style="margin-bottom:22px">
       <div class="head">
-        <div><h2>Pedidos ativos</h2><div class="sub">Mesma folha do João — ao vivo no banco. Ordem de entrada.</div></div>
-        <div class="row-inline">
-          <button class="btn ghost" id="toggleDone">Mostrar finalizados</button>
-          <button class="btn primary" onclick="go('lancar')">+ Lançar pedido</button>
-        </div>
+        <div><h2>Pedidos ativos</h2><div class="sub">Some só quando risco + enfesto + corte + nota + retirada = Sim (pagamento pode ficar pendente)</div></div>
+        <div class="row-inline"><button class="btn ghost" id="toggleDone">Mostrar concluídos</button><button class="btn primary" onclick="go('lancar')">+ Lançar pedido</button></div>
       </div>
       <div style="overflow-x:auto"><table id="painelTable"></table></div>
     </div>
     <div class="card">
-      <div class="head"><div><h2>Registro de tempo</h2><div class="sub">Cada bipe, ao vivo e gravado no banco</div></div></div>
+      <div class="head"><div><h2>Registro de tempo — bipagens</h2><div class="sub">Risco · Enfesto (máquina) · Corte, ao vivo</div></div></div>
       <div class="timelog" id="timelog"></div>
     </div>
   </section>
@@ -207,30 +190,14 @@
     <div class="card">
       <div class="head"><div><h2>Lançar pedido</h2><div class="sub">Rápido, dá pra digitar tudo no teclado</div></div></div>
       <form class="form" id="formPedido" autocomplete="off">
-        <div class="field">
-          <label>Cliente *</label>
-          <input type="text" name="cliente" required placeholder="Ex: Henrique Veiga" />
+        <div class="field"><label>Cliente *</label><input type="text" name="cliente" required placeholder="Ex: Henrique Veiga" /></div>
+        <div class="field"><label>Nº do Pedido</label>
+          <div class="row-inline"><input type="text" name="numero" id="numeroInput" placeholder="gerado pelo sistema" /><button type="button" class="btn ghost" id="clearNumero">Remover</button></div>
+          <span class="hint">Sugestão automática — editável/removível. O código de barras é único de qualquer jeito.</span>
         </div>
-        <div class="field">
-          <label>Nº do Pedido</label>
-          <div class="row-inline">
-            <input type="text" name="numero" id="numeroInput" placeholder="gerado pelo sistema" />
-            <button type="button" class="btn ghost" id="clearNumero" title="Remover número">Remover</button>
-          </div>
-          <span class="hint">Sugestão automática — pode editar ou deixar em branco. O código de barras é único de qualquer jeito.</span>
-        </div>
-        <div class="field">
-          <label>Referência (REF)</label>
-          <input type="text" name="ref" placeholder="Ex: CAMISETA CARECA" />
-        </div>
-        <div class="field">
-          <label>Prazo de entrega</label>
-          <input type="date" name="prazo" />
-        </div>
-        <div class="field full">
-          <label>Observações</label>
-          <textarea name="obs" placeholder="Opcional"></textarea>
-        </div>
+        <div class="field"><label>Referência (REF)</label><input type="text" name="ref" placeholder="Ex: CAMISETA CARECA" /></div>
+        <div class="field"><label>Prazo de entrega</label><input type="date" name="prazo" /></div>
+        <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Opcional"></textarea></div>
         <div class="field full row-inline" style="justify-content:flex-end">
           <button type="button" class="btn ghost" onclick="document.getElementById('formPedido').reset();setNextNumero()">Limpar</button>
           <button type="submit" class="btn primary" id="btnCriar">Criar pedido + gerar código</button>
@@ -241,80 +208,34 @@
 
   <section class="view" id="v-impressao">
     <div class="card">
-      <div class="head">
-        <div><h2>Sala de impressão</h2><div class="sub">Selecione o pedido e imprima a etiqueta (código de barras + QR)</div></div>
-        <select id="printSelect" style="max-width:320px"></select>
-      </div>
+      <div class="head"><div><h2>Sala de impressão</h2><div class="sub">Etiqueta térmica 100×30mm — código de barras (Code128)</div></div><select id="printSelect" style="max-width:320px"></select></div>
       <div class="labelwrap">
-        <div id="printArea">
-          <div class="label" id="theLabel">
-            <div class="lcli" id="lblCli">—</div>
-            <div class="lref" id="lblRef"></div>
-            <svg id="lblBarcode"></svg>
-            <div class="lqr" id="lblQr"></div>
-            <div class="lfoot"><span id="lblNum"></span><span id="lblPrazo"></span></div>
-          </div>
-        </div>
+        <div id="printArea"><div class="label" id="theLabel">
+          <div class="lhead"><span id="lblCli">—</span><span id="lblPrazo"></span></div>
+          <svg id="lblBarcode"></svg>
+          <div class="lfoot"><span id="lblRef"></span><span id="lblNum"></span></div>
+        </div></div>
         <div style="flex:1;min-width:240px">
-          <p style="color:var(--muted);margin-top:0">A etiqueta carrega o código de barras (Code128) e o QR do pedido. O freela bipa ela no relatório e ela anda sozinha pelas etapas.</p>
+          <p style="color:var(--muted);margin-top:0">Etiqueta no tamanho exato 100mm × 30mm, só código de barras (o QR foi removido — não cabe). Na impressora térmica, defina o papel 100×30 (2 colunas).</p>
           <button class="btn primary" onclick="window.print()">Imprimir etiqueta</button>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="view" id="v-estacoes">
-    <div id="profileLogin">
-      <div class="card">
-        <div class="head"><div><h2>Entrar na estação</h2><div class="sub">Cada pessoa entra na SUA estação — o aparelho trava nela, sem sobrepor bipe de outro.</div></div></div>
-        <div style="padding:20px">
-          <div class="field" style="max-width:320px;margin-bottom:18px">
-            <label>Seu nome</label>
-            <input type="text" id="profNome" placeholder="Ex: Maria" />
-          </div>
-          <div style="color:var(--muted);font-size:12.5px;margin-bottom:10px">Escolha a estação (ordem fixa: Risco → Enfesto → Corte):</div>
-          <div class="stations" id="stations">
-            <div class="station" data-s="risco"><div class="t">1 · Risco</div><div class="d">1ª etapa</div></div>
-            <div class="station" data-s="enfesto"><div class="t">2 · Enfesto</div><div class="d">só depois do risco</div></div>
-            <div class="station" data-s="corte"><div class="t">3 · Corte</div><div class="d">só depois do enfesto</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="profileActive" style="display:none">
-      <div class="scanbox">
-        <div class="stationbadge" id="stationBadge"></div>
-        <div style="color:var(--muted);font-size:13px;margin-top:6px">Bipe o código do pedido nesta estação</div>
-        <input type="text" id="scanInput" placeholder="Bipe ou digite o código + Enter" />
-        <div class="scanmsg" id="scanMsg"></div>
-        <div style="margin-top:18px"><button class="btn ghost" onclick="logoutProfile()">Trocar estação / sair</button></div>
-      </div>
-    </div>
-  </section>
+  <section class="view" id="v-estacoes"><div id="bipArea"></div></section>
 
   <section class="view" id="v-gargalo">
-    <div class="card">
-      <div class="head"><div><h2>Onde o tempo está parando</h2><div class="sub">Tempo médio por etapa — o maior é o seu gargalo</div></div></div>
-      <div class="gargalo" id="gargalo"></div>
-    </div>
+    <div class="card"><div class="head"><div><h2>Onde o tempo está parando</h2><div class="sub">Tempo médio por etapa — o maior é o gargalo</div></div></div><div class="gargalo" id="gargalo"></div></div>
   </section>
 
   <section class="view" id="v-admin">
-    <div class="card" id="adminLockCard">
-      <div class="head"><div><h2>Área do administrador</h2><div class="sub">Só o gerente do João</div></div></div>
-      <div class="adminlock">
-        <div style="color:var(--muted)">Digite o PIN do administrador</div>
-        <input type="password" id="adminPin" placeholder="••••" maxlength="8" />
-        <div style="margin-top:14px"><button class="btn primary" onclick="tryAdmin()">Entrar</button></div>
-        <div class="scanmsg err" id="adminMsg"></div>
-        <div class="hint" style="margin-top:10px;color:var(--muted)">PIN de teste: 1234 — placeholder, não é segurança real ainda.</div>
-      </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="head"><div><h2>Usuários e estações</h2><div class="sub">Libere quem fez login e atribua a estação. Sem isso, ninguém usa o sistema.</div></div><button class="btn ghost" id="reloadUsers">Atualizar</button></div>
+      <div style="overflow-x:auto"><table id="usersTable"></table></div>
     </div>
-    <div class="card" id="adminPanel" style="display:none">
-      <div class="head">
-        <div><h2>Cancelamento de bipe</h2><div class="sub">Desfaz uma etapa bipada por engano (e as seguintes)</div></div>
-        <button class="btn ghost" onclick="lockAdmin()">Sair</button>
-      </div>
+    <div class="card">
+      <div class="head"><div><h2>Cancelar bipe</h2><div class="sub">Desfaz uma etapa bipada por engano (e as seguintes)</div></div></div>
       <div style="overflow-x:auto"><table id="adminTable"></table></div>
     </div>
   </section>
@@ -326,81 +247,153 @@ const SB_URL='https://ujvwpmgakthvifoynppf.supabase.co';
 const SB_KEY='sb_publishable_-wpUi9oiK5wYmHEpxQhmyQ_6mIu24w6';
 const sb=window.supabase.createClient(SB_URL,SB_KEY);
 
-let PEDIDOS=[], EVENTOS=[];
-let currentProfile=loadProfile();
-let isAdmin=false, showDone=false;
+const AUTHKEY='cortes_auth_v2';
+let currentUser=loadAuth();
+let gerenteExiste=false;
+let PEDIDOS=[], EVENTOS=[], USUARIOS=[];
+let showDone=false;
+let authMode='login';
+let gStation=null, enfMaquina=null, activeBipStation=null, activeBipOperador=null;
+let rtChannel=null;
 
 const STAGES=['risco','enfesto','corte'];
 const STAGE_LABEL={risco:'Risco',enfesto:'Enfesto',corte:'Corte'};
 const STAGE_COLOR={risco:'#7a4ad8',enfesto:'#185fa5',corte:'#b7791f'};
+const PAPEL_LABEL={gerente:'Gerente',risco:'Risco (cria pedidos)',enfesto:'Enfesto',corte:'Corte'};
+const TABS_BY_ROLE={
+  gerente:['painel','board','lancar','impressao','estacoes','gargalo','admin'],
+  risco:['painel','board','lancar','impressao','estacoes','gargalo'],
+  enfesto:['estacoes'], corte:['estacoes']
+};
+const TAB_LABEL={painel:'Painel',board:'Quadro',lancar:'Lançar pedido',impressao:'Impressão',estacoes:'Bipar',gargalo:'Gargalo',admin:'Admin'};
 
-const PKEY='cortes_profile_v1';
-function loadProfile(){try{return JSON.parse(localStorage.getItem(PKEY))||null;}catch(e){return null;}}
-function saveProfile(){if(currentProfile)localStorage.setItem(PKEY,JSON.stringify(currentProfile));else localStorage.removeItem(PKEY);}
+function loadAuth(){try{return JSON.parse(localStorage.getItem(AUTHKEY))||null;}catch(e){return null;}}
+function saveAuth(){if(currentUser)localStorage.setItem(AUTHKEY,JSON.stringify(currentUser));else localStorage.removeItem(AUTHKEY);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function canPainel(){return currentUser&&(currentUser.papel==='gerente'||currentUser.papel==='risco');}
+function isGerente(){return currentUser&&currentUser.papel==='gerente';}
+
+async function rpc(name,args){try{const {data,error}=await sb.rpc(name,args||{});if(error)return {ok:false,msg:error.message};return data;}catch(e){return {ok:false,msg:String(e&&e.message||e)};}}
+
+/* ---------- AUTH ---------- */
+async function boot(){
+  const r=await sb.rpc('gerente_existe'); gerenteExiste=!!(r&&r.data);
+  if(currentUser&&currentUser.token){enterApp();} else {showAuth();}
+}
+function showAuth(){
+  document.getElementById('appShell').style.display='none';
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('auGerenteWrap').style.display=gerenteExiste?'none':'block';
+  document.getElementById('auMsg').textContent='';
+}
+document.getElementById('authTabs').addEventListener('click',e=>{
+  if(!e.target.dataset.a)return; authMode=e.target.dataset.a;
+  document.querySelectorAll('#authTabs button').forEach(b=>b.classList.toggle('active',b.dataset.a===authMode));
+  document.getElementById('auBtn').textContent=authMode==='login'?'Entrar':'Criar conta';
+  document.getElementById('auMsg').textContent='';
+});
+document.getElementById('auBtn').addEventListener('click',doAuth);
+document.getElementById('auPass').addEventListener('keydown',e=>{if(e.key==='Enter')doAuth();});
+async function doAuth(){
+  const u=document.getElementById('auUser').value.trim(), p=document.getElementById('auPass').value, msg=document.getElementById('auMsg');
+  if(!u||!p){msg.className='authmsg err';msg.textContent='Preencha usuário e senha.';return;}
+  if(authMode==='signup'){
+    const r=await rpc('signup',{p_username:u,p_senha:p});
+    msg.className='authmsg '+(r.ok?'ok':'err'); msg.textContent=r.msg||(r.ok?'Conta criada.':'Erro');
+    return;
+  }
+  const r=await rpc('login',{p_username:u,p_senha:p});
+  if(!r.ok){msg.className='authmsg err';msg.textContent=r.msg||'Erro';return;}
+  currentUser={id:r.id,username:r.username,papel:r.papel,token:r.token}; saveAuth(); enterApp();
+}
+document.getElementById('auGerenteBtn').addEventListener('click',async()=>{
+  const u=document.getElementById('auUser').value.trim(), p=document.getElementById('auPass').value, msg=document.getElementById('auMsg');
+  if(!u||!p){msg.className='authmsg err';msg.textContent='Preencha usuário e senha pra criar o gerente.';return;}
+  const r=await rpc('criar_gerente',{p_username:u,p_senha:p});
+  if(!r.ok){msg.className='authmsg err';msg.textContent=r.msg||'Erro';return;}
+  msg.className='authmsg ok';msg.textContent='Gerente criado! Entrando…';
+  const lr=await rpc('login',{p_username:u,p_senha:p});
+  if(lr.ok){currentUser={id:lr.id,username:lr.username,papel:lr.papel,token:lr.token};saveAuth();enterApp();}
+});
+document.getElementById('logoutBtn').addEventListener('click',()=>{currentUser=null;saveAuth();gStation=null;enfMaquina=null;if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;}location.reload();});
+
+/* ---------- entrar no app ---------- */
+function enterApp(){
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('appShell').style.display='block';
+  document.getElementById('roleLine').textContent=PAPEL_LABEL[currentUser.papel]+' · '+currentUser.username;
+  const tabs=TABS_BY_ROLE[currentUser.papel]||['estacoes'];
+  const nav=document.getElementById('tabs');
+  nav.style.display=tabs.length>1?'flex':'none';
+  nav.innerHTML=tabs.map((t,i)=>`<button data-v="${t}" class="${i===0?'active':''}">${TAB_LABEL[t]}</button>`).join('');
+  document.getElementById('scanIndicator').style.display=(currentUser.papel!=='gerente'&&currentUser.papel!=='risco')?'none':'flex';
+  go(tabs[0]);
+  if(canPainel()){ loadAll(); subscribeRealtime(); }
+  else { document.getElementById('connPill').style.display='none'; }
+}
+function subscribeRealtime(){
+  if(rtChannel)return;
+  rtChannel=sb.channel('cortes-rt')
+    .on('postgres_changes',{event:'*',schema:'public',table:'pedidos'},loadAll)
+    .on('postgres_changes',{event:'*',schema:'public',table:'eventos'},loadAll)
+    .subscribe();
+}
 
 /* ---------- dados ---------- */
 async function loadAll(){
+  if(!canPainel())return;
   try{
     const [r1,r2]=await Promise.all([
       sb.from('pedidos').select('*').order('created_at',{ascending:true}),
       sb.from('eventos').select('*').order('ts',{ascending:false}).limit(200)
     ]);
-    if(r1.error)throw r1.error;
-    if(r2.error)throw r2.error;
-    PEDIDOS=r1.data||[]; EVENTOS=r2.data||[];
-    setConn(true); renderAll();
-  }catch(err){
-    console.error('loadAll',err);
-    setConn(false,err.message||String(err));
-  }
+    if(r1.error)throw r1.error; if(r2.error)throw r2.error;
+    PEDIDOS=r1.data||[]; EVENTOS=r2.data||[]; setConn(true); renderAll();
+  }catch(err){console.error('loadAll',err);setConn(false,err.message||String(err));}
 }
-function setConn(ok,msg){
-  const dot=document.getElementById('connDot'), pill=document.getElementById('connPill');
-  if(ok){dot.className='dot';pill.lastChild.textContent=' online — Supabase';}
-  else{dot.className='dot off';pill.lastChild.textContent=' offline'+(msg?(' — '+msg).slice(0,60):'');}
-}
+function setConn(ok,msg){const dot=document.getElementById('connDot'),pill=document.getElementById('connPill');
+  if(ok){dot.className='dot';pill.lastChild.textContent=' online';}else{dot.className='dot off';pill.lastChild.textContent=' offline'+(msg?(' — '+msg).slice(0,50):'');}}
 
 /* ---------- lógica ---------- */
 function etapaOf(p){if(p.corte)return 'pronto';if(p.enfesto)return 'corte';if(p.risco)return 'enfesto';return 'risco';}
-function isFinalizado(p){return !!p.corte;}
+function isFinalizado(p){return p.risco&&p.enfesto&&p.corte&&p.nota&&p.retirada;} /* pagamento NÃO conta */
 function openPedidos(){return PEDIDOS.filter(p=>!isFinalizado(p));}
 function pedById(id){return PEDIDOS.find(p=>p.id===id);}
 
-async function bipe(code,stage){
-  try{
-    const {data,error}=await sb.rpc('bipe',{p_codigo:(code||'').trim(),p_stage:stage,p_operador:currentProfile?currentProfile.nome:null});
-    if(error)return {ok:false,msg:'Erro de conexão: '+error.message};
-    await loadAll();
-    return {ok:!!data.ok, msg:(data.ok?'✓ '+STAGE_LABEL[stage]+' OK → ':'⛔ ')+data.msg};
-  }catch(err){return {ok:false,msg:'Erro: '+(err.message||err)};}
-}
-async function cancelBipe(id,stage){
-  if(!isAdmin)return;
-  const {error}=await sb.rpc('cancelar_bipe',{p_id:id,p_stage:stage});
-  if(error){alert('Erro ao cancelar: '+error.message);return;}
-  await loadAll();
+async function bipe(code,stage,operador){
+  const r=await rpc('bipe',{p_codigo:(code||'').trim(),p_stage:stage,p_operador:operador||null});
+  if(r&&r.ok!==undefined){await loadAll();return {ok:!!r.ok,msg:(r.ok?'✓ '+STAGE_LABEL[stage]+' OK → ':'⛔ ')+r.msg};}
+  return {ok:false,msg:'⛔ '+((r&&r.msg)||'Erro de conexão')};
 }
 async function toggleAdminField(id,field){
   const p=pedById(id);if(!p)return;
   const {error}=await sb.from('pedidos').update({[field]:!p[field]}).eq('id',id);
-  if(error){alert('Erro: '+error.message);return;}
-  await loadAll();
+  if(error){alert('Erro: '+error.message);return;} await loadAll();
+}
+async function cancelBipe(id,stage){
+  const r=await rpc('cancelar_bipe',{p_token:currentUser.token,p_id:id,p_stage:stage});
+  if(!r.ok){alert('Erro: '+(r.msg||'não autorizado'));return;} await loadAll();
+}
+async function excluirPedido(id){
+  const p=pedById(id);if(!p)return;
+  if(!confirm('Apagar o pedido de '+(p.cliente||p.codigo)+' ('+p.codigo+')? Isso é permanente.'))return;
+  const r=await rpc('excluir_pedido',{p_token:currentUser.token,p_id:id});
+  if(!r.ok){alert('Erro: '+(r.msg||'não autorizado'));return;} await loadAll();
 }
 
 /* ---------- helpers ---------- */
-function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function fmtPrazo(d){if(!d)return '—';const[y,m,dd]=String(d).split('-');return dd+'/'+m+'/'+y;}
+function fmtPrazo(d){if(!d)return '—';const a=String(d).split('-');return a[2]+'/'+a[1]+'/'+a[0];}
 function isLate(p){if(!p.prazo||isFinalizado(p))return false;return new Date(p.prazo+'T23:59:59')<new Date();}
 function fmtTime(ts){return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function fmtDur(ms){if(ms<=0)return '—';const h=Math.floor(ms/3600e3),m=Math.round((ms%3600e3)/60e3);if(h>=1)return h+'h'+String(m).padStart(2,'0');return m+'min';}
-function pillTog(id,field,onLabel,offLabel){const on=pedById(id)[field];return `<span class="pill tog ${on?'sim':'nao'}" onclick="toggleAdminField('${id}','${field}')">${on?onLabel:offLabel}</span>`;}
+function pillTog(id,field,onL,offL){const on=pedById(id)[field];return `<span class="pill tog ${on?'sim':'nao'}" onclick="toggleAdminField('${id}','${field}')">${on?onL:offL}</span>`;}
 
-/* ---------- render ---------- */
+/* ---------- render painel ---------- */
 function renderStats(){
-  const open=openPedidos(), late=open.filter(isLate).length, g=worstGargalo();
+  const open=openPedidos(),late=open.filter(isLate).length,g=worstGargalo();
   document.getElementById('stats').innerHTML=`
     <div class="stat"><div class="k">Pedidos ativos</div><div class="v">${open.length}</div></div>
-    <div class="stat"><div class="k">No risco / enfesto / corte</div><div class="v">${open.filter(p=>etapaOf(p)==='risco').length} · ${open.filter(p=>etapaOf(p)==='enfesto').length} · ${open.filter(p=>etapaOf(p)==='corte').length}</div></div>
+    <div class="stat"><div class="k">Risco / Enfesto / Corte</div><div class="v">${open.filter(p=>etapaOf(p)==='risco').length} · ${open.filter(p=>etapaOf(p)==='enfesto').length} · ${open.filter(p=>etapaOf(p)==='corte').length}</div></div>
     <div class="stat"><div class="k">Atrasados</div><div class="v" style="color:${late?'var(--red)':'inherit'}">${late}</div></div>
     <div class="stat"><div class="k">Gargalo agora</div><div class="v warn">${g?(STAGE_LABEL[g.stage]+' · '+fmtDur(g.avg)):'sem dados'}</div></div>`;
 }
@@ -408,201 +401,198 @@ function renderPainel(){
   const open=openPedidos();
   const done=PEDIDOS.filter(isFinalizado).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const rows=showDone?open.concat(done):open;
-  const t=document.getElementById('painelTable');
+  const t=document.getElementById('painelTable'); const ger=isGerente();
   if(!rows.length){t.innerHTML=`<tbody><tr><td><div class="empty"><div class="big">Nenhum pedido ativo</div>Lance um pedido pra começar.</div></td></tr></tbody>`;return;}
   let body='';
   rows.forEach((p,i)=>{
     const fin=isFinalizado(p);
     const ord=fin?'<span class="ord">✓</span>':`<span class="ord ${i<3?'hot':''}">${i+1}</span>`;
-    const st=(f)=>p[f]?'<span class="pill sim">Sim</span>':'<span class="pill nao">Não</span>';
+    const st=f=>p[f]?'<span class="pill sim">Sim</span>':'<span class="pill nao">Não</span>';
+    const pg=p.pagamento?`<span class="pill sim tog" onclick="toggleAdminField('${p.id}','pagamento')">Pago</span>`:`<span class="pill pend tog" onclick="toggleAdminField('${p.id}','pagamento')">Pendente</span>`;
+    const del=ger?`<td><button class="btn danger sm" onclick="excluirPedido('${p.id}')" title="Apagar pedido">✕</button></td>`:(canPainel()?'<td></td>':'');
     body+=`<tr style="${fin?'opacity:.6':''}">
-      <td>${ord}</td>
-      <td class="cli">${esc(p.cliente)||'—'}</td>
-      <td>${esc(p.numero)||'<span class="ref">—</span>'}</td>
-      <td class="ref">${esc(p.ref)||'—'}</td>
-      <td class="prazo ${isLate(p)?'late':''}">${fmtPrazo(p.prazo)}</td>
-      <td>${st('risco')}</td>
-      <td>${st('enfesto')}</td>
-      <td>${st('corte')}</td>
-      <td>${pillTog(p.id,'nota','Sim','Não')}</td>
-      <td>${p.pagamento?'<span class="pill sim tog" onclick="toggleAdminField(\''+p.id+'\',\'pagamento\')">Pago</span>':'<span class="pill pend tog" onclick="toggleAdminField(\''+p.id+'\',\'pagamento\')">Pendente</span>'}</td>
-      <td>${pillTog(p.id,'retirada','Sim','Não')}</td>
-      <td class="code">${esc(p.codigo)}</td>
-    </tr>`;
+      <td>${ord}</td><td class="cli">${esc(p.cliente)||'—'}</td><td>${esc(p.numero)||'<span class="ref">—</span>'}</td>
+      <td class="ref">${esc(p.ref)||'—'}</td><td class="prazo ${isLate(p)?'late':''}">${fmtPrazo(p.prazo)}</td>
+      <td>${st('risco')}</td><td>${st('enfesto')}</td><td>${st('corte')}</td>
+      <td>${pillTog(p.id,'nota','Sim','Não')}</td><td>${pg}</td><td>${pillTog(p.id,'retirada','Sim','Não')}</td>
+      <td class="code">${esc(p.codigo)}</td>${del}</tr>`;
   });
-  t.innerHTML=`<thead><tr>
-    <th>Ord.</th><th>Cliente</th><th>Nº Pedido</th><th>REF</th><th>Prazo</th>
-    <th>Risco</th><th>Enfesto</th><th>Corte</th><th>Nota</th><th>Pgto</th><th>Retirada</th><th>Código</th>
-  </tr></thead><tbody>${body}</tbody>`;
+  t.innerHTML=`<thead><tr><th>Ord.</th><th>Cliente</th><th>Nº</th><th>REF</th><th>Prazo</th><th>Risco</th><th>Enfesto</th><th>Corte</th><th>Nota</th><th>Pgto</th><th>Retirada</th><th>Código</th>${ger?'<th></th>':(canPainel()?'<th></th>':'')}</tr></thead><tbody>${body}</tbody>`;
 }
 function renderTimelog(){
   const el=document.getElementById('timelog');
   if(!EVENTOS.length){el.innerHTML='<div class="empty">Nenhum bipe ainda.</div>';return;}
-  const pmap={};PEDIDOS.forEach(p=>pmap[p.id]=p);
-  const color={risco:'#7a4ad8',enfesto:'#185fa5',corte:'var(--amber)'};
+  const pmap={};PEDIDOS.forEach(p=>pmap[p.id]=p);const color={risco:'#7a4ad8',enfesto:'#185fa5',corte:'var(--amber)'};
   el.innerHTML=EVENTOS.slice(0,40).map(e=>{const p=pmap[e.pedido_id]||{};return `<div class="logrow">
     <span><span class="when">${fmtTime(e.ts)}</span>${esc(p.cliente)||esc(e.codigo)}${p.numero?(' · '+esc(p.numero)):''} <span style="color:var(--muted)">→</span> <span class="stg" style="color:${color[e.stage]||'inherit'}">${STAGE_LABEL[e.stage]||e.stage}</span> <span style="color:var(--muted);font-size:12px">· ${esc(e.operador)||'—'}</span></span>
-    <span class="code">${esc(e.codigo)}</span>
-  </div>`;}).join('');
+    <span class="code">${esc(e.codigo)}</span></div>`;}).join('');
 }
 function renderBoard(){
   const cols=[['risco','Risco','c-risco'],['enfesto','Enfesto','c-enf'],['corte','Corte','c-cor'],['pronto','Pronto','c-pr']];
   document.getElementById('board').innerHTML=cols.map(([key,label,cls])=>{
-    const items=PEDIDOS.filter(p=>etapaOf(p)===key);
+    const items=openPedidos().filter(p=>etapaOf(p)===key);
     const cards=items.map(p=>`<div class="tk"><div class="cli">${esc(p.cliente)}</div><div class="meta"><span>${esc(p.ref)||'—'}</span><span class="code">${esc(p.numero)||esc(p.codigo)}</span></div></div>`).join('')||'<div style="color:var(--muted);font-size:12px;padding:4px">vazio</div>';
     return `<div class="col ${cls}"><div class="colhead"><span>${label}</span><span class="badge">${items.length}</span></div><div class="body">${cards}</div></div>`;
   }).join('');
 }
 function gargaloStats(){
-  const acc={risco:{sum:0,n:0},enfesto:{sum:0,n:0},corte:{sum:0,n:0}};
-  const byPed={};
-  EVENTOS.forEach(e=>{const m=byPed[e.pedido_id]=byPed[e.pedido_id]||{};const t=new Date(e.ts).getTime();if(m[e.stage]==null||t<m[e.stage])m[e.stage]=t;});
-  PEDIDOS.forEach(p=>{const ev=byPed[p.id]||{};const c=new Date(p.created_at).getTime();
-    if(ev.risco){acc.risco.sum+=ev.risco-c;acc.risco.n++;}
-    if(ev.enfesto&&ev.risco){acc.enfesto.sum+=ev.enfesto-ev.risco;acc.enfesto.n++;}
-    if(ev.corte&&ev.enfesto){acc.corte.sum+=ev.corte-ev.enfesto;acc.corte.n++;}});
-  const out={};STAGES.forEach(s=>out[s]={avg:acc[s].n?acc[s].sum/acc[s].n:0,n:acc[s].n});return out;
+  const acc={risco:{s:0,n:0},enfesto:{s:0,n:0},corte:{s:0,n:0}},byP={};
+  EVENTOS.forEach(e=>{const m=byP[e.pedido_id]=byP[e.pedido_id]||{};const t=new Date(e.ts).getTime();if(m[e.stage]==null||t<m[e.stage])m[e.stage]=t;});
+  PEDIDOS.forEach(p=>{const ev=byP[p.id]||{},c=new Date(p.created_at).getTime();
+    if(ev.risco){acc.risco.s+=ev.risco-c;acc.risco.n++;}
+    if(ev.enfesto&&ev.risco){acc.enfesto.s+=ev.enfesto-ev.risco;acc.enfesto.n++;}
+    if(ev.corte&&ev.enfesto){acc.corte.s+=ev.corte-ev.enfesto;acc.corte.n++;}});
+  const o={};STAGES.forEach(s=>o[s]={avg:acc[s].n?acc[s].s/acc[s].n:0,n:acc[s].n});return o;
 }
-function worstGargalo(){const s=gargaloStats();let best=null;STAGES.forEach(k=>{if(s[k].n>0&&(!best||s[k].avg>best.avg))best={stage:k,avg:s[k].avg};});return best;}
-function renderGargalo(){
-  const stats=gargaloStats(),max=Math.max(...STAGES.map(s=>stats[s].avg),1),worst=worstGargalo();
-  document.getElementById('gargalo').innerHTML=STAGES.map(s=>{const a=stats[s];const isMax=worst&&worst.stage===s&&a.n>0;
-    return `<div class="gbar ${isMax?'max':''}"><div class="gname"><span>${STAGE_LABEL[s]}</span><span style="font-size:12px;color:var(--muted)">${a.n} pedido(s)</span></div>
-      <div class="gtime">${a.n?fmtDur(a.avg):'—'}</div><div class="track"><div class="fill" style="width:${a.n?Math.round(a.avg/max*100):0}%"></div></div></div>`;}).join('');
+function worstGargalo(){const s=gargaloStats();let b=null;STAGES.forEach(k=>{if(s[k].n>0&&(!b||s[k].avg>b.avg))b={stage:k,avg:s[k].avg};});return b;}
+function renderGargalo(){const st=gargaloStats(),mx=Math.max(...STAGES.map(s=>st[s].avg),1),w=worstGargalo();
+  document.getElementById('gargalo').innerHTML=STAGES.map(s=>{const a=st[s],isMax=w&&w.stage===s&&a.n>0;
+    return `<div class="gbar ${isMax?'max':''}"><div class="gname"><span>${STAGE_LABEL[s]}</span><span style="font-size:12px;color:var(--muted)">${a.n} pedido(s)</span></div><div class="gtime">${a.n?fmtDur(a.avg):'—'}</div><div class="track"><div class="fill" style="width:${a.n?Math.round(a.avg/mx*100):0}%"></div></div></div>`;}).join('');
 }
-function renderPrintSelect(){
-  const sel=document.getElementById('printSelect');const cur=sel.value;
+function renderPrintSelect(){const sel=document.getElementById('printSelect');if(!sel)return;const cur=sel.value;
   sel.innerHTML=PEDIDOS.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(p=>`<option value="${p.id}">${esc(p.cliente)} · ${esc(p.numero)||esc(p.codigo)}</option>`).join('');
-  if(cur&&PEDIDOS.some(p=>p.id===cur))sel.value=cur;
-  drawLabel();
-}
-function drawLabel(){
-  const id=document.getElementById('printSelect').value;const p=pedById(id);
+  if(cur&&PEDIDOS.some(p=>p.id===cur))sel.value=cur; drawLabel();}
+function drawLabel(){const sel=document.getElementById('printSelect');if(!sel)return;const p=pedById(sel.value);
   const cli=document.getElementById('lblCli');
-  if(!p){cli.textContent='—';document.getElementById('lblRef').textContent='';document.getElementById('lblNum').textContent='';document.getElementById('lblPrazo').textContent='';document.getElementById('lblBarcode').innerHTML='';document.getElementById('lblQr').innerHTML='';return;}
-  cli.textContent=p.cliente;
-  document.getElementById('lblRef').textContent=p.ref||'';
-  document.getElementById('lblNum').textContent=p.numero?('Pedido '+p.numero):p.codigo;
+  if(!p){cli.textContent='—';['lblRef','lblNum','lblPrazo'].forEach(i=>document.getElementById(i).textContent='');document.getElementById('lblBarcode').innerHTML='';return;}
+  cli.textContent=p.cliente; document.getElementById('lblRef').textContent=p.ref||'';
+  document.getElementById('lblNum').textContent=p.numero?('Nº '+p.numero):p.codigo;
   document.getElementById('lblPrazo').textContent=p.prazo?fmtPrazo(p.prazo):'';
-  try{JsBarcode('#lblBarcode',p.codigo,{format:'CODE128',height:54,fontSize:13,margin:4,displayValue:true});}catch(e){}
-  const qr=document.getElementById('lblQr');qr.innerHTML='';
-  try{new QRCode(qr,{text:p.codigo,width:96,height:96,correctLevel:QRCode.CorrectLevel.M});}catch(e){}
+  try{JsBarcode('#lblBarcode',p.codigo,{format:'CODE128',height:48,fontSize:13,margin:0,displayValue:true,width:1.6});}catch(e){}
 }
 
-/* ---------- admin ---------- */
-function tryAdmin(){
-  if(document.getElementById('adminPin').value==='1234'){isAdmin=true;document.getElementById('adminMsg').textContent='';document.getElementById('adminLockCard').style.display='none';document.getElementById('adminPanel').style.display='block';renderAdmin();}
-  else document.getElementById('adminMsg').textContent='PIN incorreto.';
+/* ---------- admin (gerente) ---------- */
+async function loadUsers(){
+  const r=await rpc('gerente_usuarios',{p_token:currentUser.token});
+  if(!r.ok){document.getElementById('usersTable').innerHTML='<tbody><tr><td><div class="empty">'+esc(r.msg||'Não autorizado')+'</div></td></tr></tbody>';return;}
+  USUARIOS=r.usuarios||[]; renderUsers();
 }
-function lockAdmin(){isAdmin=false;document.getElementById('adminPin').value='';document.getElementById('adminLockCard').style.display='block';document.getElementById('adminPanel').style.display='none';}
+function renderUsers(){
+  const t=document.getElementById('usersTable');
+  if(!USUARIOS.length){t.innerHTML='<tbody><tr><td><div class="empty">Nenhum usuário ainda.</div></td></tr></tbody>';return;}
+  let body='';
+  USUARIOS.forEach(u=>{
+    const isGer=u.papel==='gerente';
+    const stSel=`<select id="sel_${u.id}" style="max-width:150px"><option value="risco">Risco</option><option value="enfesto">Enfesto</option><option value="corte">Corte</option></select>`;
+    let acoes;
+    if(isGer){acoes='<span style="color:var(--muted)">—</span>';}
+    else{
+      acoes=`${stSel} <button class="btn primary sm" onclick="atribuir('${u.id}')">Liberar</button>`;
+      if(u.status==='ativo')acoes+=` <button class="btn sm" onclick="bloquear('${u.id}')">Bloquear</button>`;
+      acoes+=` <button class="btn danger sm" onclick="excluirUsuario('${u.id}')">Excluir</button>`;
+    }
+    const stPill=u.status==='ativo'?'<span class="pill sim">ativo</span>':(u.status==='pendente'?'<span class="pill pend">pendente</span>':'<span class="pill nao">bloqueado</span>');
+    body+=`<tr><td class="cli">${esc(u.username)}</td><td>${u.papel?PAPEL_LABEL[u.papel]:'<span class="ref">— sem estação —</span>'}</td><td>${stPill}</td><td>${acoes}</td></tr>`;
+  });
+  t.innerHTML=`<thead><tr><th>Usuário</th><th>Estação</th><th>Status</th><th>Ações</th></tr></thead><tbody>${body}</tbody>`;
+  USUARIOS.forEach(u=>{const s=document.getElementById('sel_'+u.id);if(s&&u.papel)s.value=u.papel;});
+}
+async function atribuir(id){const sel=document.getElementById('sel_'+id);const r=await rpc('gerente_atribuir',{p_token:currentUser.token,p_user_id:id,p_papel:sel.value,p_status:'ativo'});if(!r.ok){alert('Erro: '+(r.msg||''));return;}loadUsers();}
+async function bloquear(id){const r=await rpc('gerente_atribuir',{p_token:currentUser.token,p_user_id:id,p_papel:null,p_status:'bloqueado'});if(!r.ok){alert('Erro: '+(r.msg||''));return;}loadUsers();}
+async function excluirUsuario(id){if(!confirm('Excluir este usuário?'))return;const r=await rpc('gerente_excluir_usuario',{p_token:currentUser.token,p_user_id:id});if(!r.ok){alert('Erro: '+(r.msg||''));return;}loadUsers();}
 function renderAdmin(){
-  if(!isAdmin)return;
   const rows=PEDIDOS.filter(p=>p.risco||p.enfesto||p.corte).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const t=document.getElementById('adminTable');
   if(!rows.length){t.innerHTML='<tbody><tr><td><div class="empty">Nenhum bipe pra cancelar.</div></td></tr></tbody>';return;}
   let body='';
-  rows.forEach(p=>{
-    const btns=STAGES.filter(s=>p[s]).map(s=>`<button class="btn danger" onclick="cancelBipe('${p.id}','${s}')">✕ ${STAGE_LABEL[s]}</button>`).join(' ')||'<span style="color:var(--muted)">—</span>';
-    body+=`<tr><td class="cli">${esc(p.cliente)}</td><td>${esc(p.numero)||'—'}</td><td class="code">${esc(p.codigo)}</td><td>${btns}</td></tr>`;
-  });
+  rows.forEach(p=>{const btns=STAGES.filter(s=>p[s]).map(s=>`<button class="btn danger sm" onclick="cancelBipe('${p.id}','${s}')">✕ ${STAGE_LABEL[s]}</button>`).join(' ')||'<span style="color:var(--muted)">—</span>';
+    body+=`<tr><td class="cli">${esc(p.cliente)}</td><td>${esc(p.numero)||'—'}</td><td class="code">${esc(p.codigo)}</td><td>${btns}</td></tr>`;});
   t.innerHTML=`<thead><tr><th>Cliente</th><th>Nº</th><th>Código</th><th>Cancelar etapa (cascata)</th></tr></thead><tbody>${body}</tbody>`;
 }
+document.getElementById('reloadUsers').addEventListener('click',loadUsers);
 
-function renderAll(){renderStats();renderPainel();renderTimelog();renderBoard();renderGargalo();renderPrintSelect();if(isAdmin)renderAdmin();}
+function renderAll(){if(!canPainel())return;renderStats();renderPainel();renderTimelog();renderBoard();renderGargalo();renderPrintSelect();renderAdmin();}
+
+/* ---------- BIPAR (estações) ---------- */
+function renderBip(){
+  const area=document.getElementById('bipArea'); const role=currentUser.papel;
+  let station = role==='gerente' ? gStation : role;
+  if(role==='gerente' && !station){
+    area.innerHTML=`<div class="card" style="padding:24px"><div style="color:var(--muted);font-size:13px;margin-bottom:12px;text-align:center">Gerente — escolha em qual etapa vai bipar</div>
+      <div class="bigchoice">${STAGES.map(s=>`<div class="choice" onclick="setGStation('${s}')"><div class="t">${STAGE_LABEL[s]}</div></div>`).join('')}</div></div>`;
+    activeBipStation=null;return;
+  }
+  if(station==='enfesto' && !enfMaquina){
+    area.innerHTML=`<div class="card" style="padding:28px"><div style="font-size:16px;font-weight:620;text-align:center;margin-bottom:6px">Enfesto — escolha a máquina</div>
+      <div style="color:var(--muted);font-size:13px;text-align:center;margin-bottom:18px">A gente registra qual máquina começou e o horário (pra ver qual é mais lerda).</div>
+      <div class="bigchoice">
+        <div class="choice azul" onclick="setMaquina('azul')"><div class="t">Máquina AZUL</div><div class="d">clique e comece a bipar</div></div>
+        <div class="choice preta" onclick="setMaquina('preta')"><div class="t">Máquina PRETA</div><div class="d">clique e comece a bipar</div></div>
+      </div></div>`;
+    activeBipStation=null;return;
+  }
+  activeBipStation=station;
+  activeBipOperador = station==='enfesto' ? ('Máquina '+enfMaquina) : currentUser.username;
+  const c=STAGE_COLOR[station]||'var(--ink)';
+  const extra = station==='enfesto'
+    ? `<div style="margin-top:6px;color:var(--muted);font-size:13px">Máquina <strong style="color:${enfMaquina==='azul'?'#185fa5':'#0f1729'}">${enfMaquina.toUpperCase()}</strong> · <a href="#" onclick="enfMaquina=null;renderBip();return false">trocar</a></div>`
+    : (role==='gerente'?`<div style="margin-top:6px"><a href="#" onclick="gStation=null;enfMaquina=null;renderBip();return false">trocar etapa</a></div>`:'');
+  area.innerHTML=`<div class="scanbox">
+    <div class="stationbadge"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};margin-right:9px"></span>Estação ${STAGE_LABEL[station]}</div>
+    ${extra}
+    <div style="color:var(--muted);font-size:13px;margin-top:10px">Bipe o código do pedido</div>
+    <input type="text" id="scanInput" placeholder="Bipe ou digite o código + Enter" autocomplete="off" />
+    <div class="scanmsg" id="scanMsg"></div>
+  </div>`;
+  const inp=document.getElementById('scanInput');
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();handleScan(inp.value);inp.value='';}});
+  inp.addEventListener('blur',()=>{if(viewActive('estacoes'))setTimeout(()=>{const x=document.getElementById('scanInput');if(x)x.focus();},10);});
+  setTimeout(()=>inp.focus(),50);
+  updateScanIndicator();
+}
+function setGStation(s){gStation=s;enfMaquina=null;renderBip();}
+function setMaquina(m){enfMaquina=m;renderBip();}
+async function handleScan(code){
+  const msg=document.getElementById('scanMsg');if(!msg)return;
+  if(!activeBipStation){msg.className='scanmsg err';msg.textContent='Escolha a estação/máquina primeiro.';return;}
+  if(!code.trim())return;
+  msg.className='scanmsg';msg.textContent='…';
+  const r=await bipe(code,activeBipStation,activeBipOperador);
+  msg.className='scanmsg '+(r.ok?'ok':'err');msg.textContent=r.msg;
+}
+function updateScanIndicator(){const ind=document.getElementById('scanIndicator');if(!ind)return;ind.style.background='';
+  if(activeBipStation)ind.innerHTML='<span class="dot"></span> Bipando: '+STAGE_LABEL[activeBipStation]+(activeBipStation==='enfesto'?(' · '+(enfMaquina||'')):'');
+  else ind.innerHTML='<span class="dot wait"></span> escolha a estação';}
+
+/* leitor óptico global: só na tela de bipe e com estação ativa */
+let buf='',lastT=0;
+document.addEventListener('keydown',e=>{
+  if(!currentUser||!viewActive('estacoes')||!activeBipStation)return;
+  const tag=(document.activeElement&&document.activeElement.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+  const now=Date.now();if(now-lastT>120)buf='';lastT=now;
+  if(e.key==='Enter'){if(buf.length>=3)bipe(buf,activeBipStation,activeBipOperador).then(flashScan);buf='';return;}
+  if(e.key.length===1)buf+=e.key;
+});
+function flashScan(r){const msg=document.getElementById('scanMsg');if(msg){msg.className='scanmsg '+(r.ok?'ok':'err');msg.textContent=r.msg;}}
 
 /* ---------- navegação ---------- */
+function viewActive(v){const el=document.getElementById('v-'+v);return el&&el.classList.contains('active');}
 function go(v){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='v-'+v));
-  if(v==='estacoes'){renderEstacoes();if(currentProfile)setTimeout(()=>document.getElementById('scanInput').focus(),50);}
+  if(v==='estacoes')renderBip();
+  if(v==='admin'&&isGerente())loadUsers();
+  if(v==='impressao')drawLabel();
 }
 document.getElementById('tabs').addEventListener('click',e=>{if(e.target.dataset.v)go(e.target.dataset.v);});
-document.getElementById('toggleDone').addEventListener('click',e=>{showDone=!showDone;e.target.textContent=showDone?'Ocultar finalizados':'Mostrar finalizados';renderPainel();});
+document.getElementById('toggleDone').addEventListener('click',e=>{showDone=!showDone;e.target.textContent=showDone?'Ocultar concluídos':'Mostrar concluídos';renderPainel();});
 document.getElementById('printSelect').addEventListener('change',drawLabel);
 
 /* ---------- lançar ---------- */
-function setNextNumero(){document.getElementById('numeroInput').value=String(PEDIDOS.length+1).padStart(3,'0');}
+function setNextNumero(){const el=document.getElementById('numeroInput');if(el)el.value=String((PEDIDOS.length||0)+1).padStart(3,'0');}
 document.getElementById('clearNumero').addEventListener('click',()=>{document.getElementById('numeroInput').value='';});
 document.getElementById('formPedido').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const f=e.target, btn=document.getElementById('btnCriar');
-  btn.disabled=true;
+  e.preventDefault();const f=e.target,btn=document.getElementById('btnCriar');btn.disabled=true;
   const row={cliente:f.cliente.value.trim(),numero:f.numero.value.trim()||null,ref:f.ref.value.trim()||null,prazo:f.prazo.value||null,obs:f.obs.value.trim()||null};
   const {data,error}=await sb.from('pedidos').insert(row).select().single();
   btn.disabled=false;
   if(error){alert('Erro ao criar pedido: '+error.message);return;}
-  await loadAll();
-  f.reset();setNextNumero();
-  const sel=document.getElementById('printSelect');sel.value=data.id;drawLabel();
-  go('impressao');
+  await loadAll();f.reset();setNextNumero();
+  const sel=document.getElementById('printSelect');sel.value=data.id;go('impressao');
 });
 
-/* ---------- estações + perfil + scan ---------- */
-document.getElementById('stations').addEventListener('click',e=>{
-  const card=e.target.closest('.station');if(!card)return;
-  const el=document.getElementById('profNome'),nome=el.value.trim();
-  if(!nome){el.focus();el.placeholder='Digite seu nome primeiro';return;}
-  loginProfile(nome,card.dataset.s);
-});
-function loginProfile(nome,estacao){currentProfile={nome,estacao};saveProfile();renderEstacoes();setTimeout(()=>{const i=document.getElementById('scanInput');if(i)i.focus();},50);}
-function logoutProfile(){currentProfile=null;saveProfile();renderEstacoes();}
-function renderEstacoes(){
-  const login=document.getElementById('profileLogin'),active=document.getElementById('profileActive');
-  if(currentProfile){
-    login.style.display='none';active.style.display='block';
-    const c=STAGE_COLOR[currentProfile.estacao]||'var(--ink)';
-    document.getElementById('stationBadge').innerHTML='<span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:'+c+';margin-right:9px"></span><span style="font-size:18px;font-weight:650">Estação '+STAGE_LABEL[currentProfile.estacao]+'</span> <span style="color:var(--muted)">· '+esc(currentProfile.nome)+'</span>';
-  }else{login.style.display='block';active.style.display='none';}
-  updateScanIndicator();
-}
-function updateScanIndicator(){
-  const ind=document.getElementById('scanIndicator');ind.style.background='';
-  if(currentProfile)ind.innerHTML='<span class="dot"></span> Estação '+STAGE_LABEL[currentProfile.estacao]+' · '+esc(currentProfile.nome);
-  else ind.innerHTML='<span class="dot" style="background:var(--muted);box-shadow:none"></span> Sem estação — entre em Estações de bipe';
-}
-const scanInput=document.getElementById('scanInput');
-scanInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();handleScan(scanInput.value);scanInput.value='';}});
-scanInput.addEventListener('blur',()=>{if(currentProfile&&document.getElementById('v-estacoes').classList.contains('active'))setTimeout(()=>scanInput.focus(),10);});
-async function handleScan(code){
-  const msg=document.getElementById('scanMsg');
-  if(!currentProfile){msg.className='scanmsg err';msg.textContent='Entre em uma estação primeiro.';return;}
-  if(!code.trim())return;
-  msg.className='scanmsg';msg.textContent='…';
-  const r=await bipe(code,currentProfile.estacao);
-  msg.className='scanmsg '+(r.ok?'ok':'err');msg.textContent=r.msg;
-}
-
-/* leitor óptico = teclado: captura global SÓ na tela de Estações */
-let buf='',lastT=0;
-document.addEventListener('keydown',e=>{
-  const tag=(document.activeElement&&document.activeElement.tagName)||'';
-  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
-  if(!document.getElementById('v-estacoes').classList.contains('active'))return;
-  const now=Date.now();if(now-lastT>120)buf='';lastT=now;
-  if(e.key==='Enter'){
-    if(buf.length>=3){
-      if(!currentProfile)flashGlobal({ok:false,msg:'⛔ Entre em uma estação pra bipar'});
-      else bipe(buf,currentProfile.estacao).then(flashGlobal);
-    }
-    buf='';return;
-  }
-  if(e.key.length===1)buf+=e.key;
-});
-function flashGlobal(r){
-  const ind=document.getElementById('scanIndicator');
-  ind.style.background=r.ok?'var(--green-soft)':'var(--red-soft)';
-  ind.innerHTML='<span class="dot" style="background:'+(r.ok?'var(--green)':'var(--red)')+'"></span> '+esc(r.msg);
-  setTimeout(updateScanIndicator,2600);
-}
-
-/* ---------- realtime + start ---------- */
-sb.channel('cortes-rt')
-  .on('postgres_changes',{event:'*',schema:'public',table:'pedidos'},loadAll)
-  .on('postgres_changes',{event:'*',schema:'public',table:'eventos'},loadAll)
-  .subscribe();
-
-renderEstacoes();
-loadAll();
+boot();
 </script>
 </body>
 </html>
