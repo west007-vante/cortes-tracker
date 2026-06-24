@@ -128,6 +128,12 @@
   .folha-row b{min-width:185px;color:#555;font-weight:600;font-size:13px}
   .folha-obs b{display:block;color:#555;margin-bottom:6px;font-size:13px}
   .folha-obs div{min-height:54px}
+  .folha-cols3{display:grid;grid-template-columns:1fr 1fr 1fr;padding:0}
+  .folha-cols2{display:grid;grid-template-columns:1fr 1fr;padding:0}
+  .folha-cols3 .fc,.folha-cols2 .fc{border-right:1px solid #e2e2e2;padding:10px 16px}
+  .folha-cols3 .fc:last-child,.folha-cols2 .fc:last-child{border-right:0}
+  .fc-h{font-size:10.5px;color:#999;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px}
+  .fc-v{font-size:15px;color:#111;min-height:20px}
   @media(max-width:880px){.printgrid{grid-template-columns:1fr}}
 
   .timelog{max-height:340px;overflow:auto}
@@ -246,6 +252,9 @@
         <div class="field"><label>Quantidade de material</label><input type="text" name="qtd" placeholder="Ex: 50m / 12kg" /></div>
         <div class="field"><label>Referência do molde</label><input type="text" name="refmolde" placeholder="Ex: MOL-7" /></div>
         <div class="field"><label>Grade (descrição)</label><input type="text" name="grade" placeholder="Ex: P-M-G-GG" /></div>
+        <div class="field"><label>Quantidade</label><input type="text" name="quantidade" placeholder="Ex: 500 peças" /></div>
+        <div class="field"><label>Cores</label><input type="text" name="cores" placeholder="Ex: Preto, Branco" /></div>
+        <div class="field"><label>Largura da bobina</label><input type="text" name="largura" placeholder="Ex: 1,80m" /></div>
         <div class="field"><label>Nº do Pedido</label>
           <div class="row-inline"><input type="text" name="numero" id="numeroInput" placeholder="gerado pelo sistema" /><button type="button" class="btn ghost" id="clearNumero">Remover</button></div>
           <span class="hint">Automático — o código de barras é único de qualquer jeito.</span>
@@ -288,8 +297,17 @@
                 <div class="folha-row"><b>Telefone</b><span id="foTel"></span></div>
                 <div class="folha-row"><b>Endereço</b><span id="foEnd"></span></div>
               </div>
+              <div class="folha-sec folha-cols3">
+                <div class="fc"><div class="fc-h">Material</div><div class="fc-v" id="foMat"></div></div>
+                <div class="fc"><div class="fc-h">Qtd. material</div><div class="fc-v" id="foQtdMat"></div></div>
+                <div class="fc"><div class="fc-h">Ref. do molde</div><div class="fc-v" id="foRef"></div></div>
+              </div>
+              <div class="folha-sec folha-cols2">
+                <div class="fc"><div class="fc-h">Quantidade</div><div class="fc-v" id="foQtd"></div></div>
+                <div class="fc"><div class="fc-h">Cores</div><div class="fc-v" id="foCores"></div></div>
+              </div>
               <div class="folha-sec">
-                <div class="folha-row"><b>Material / Qtd / Ref. molde</b><span id="foMat"></span></div>
+                <div class="folha-row"><b>Largura da bobina</b><span id="foLarg"></span></div>
                 <div class="folha-row"><b>Grade</b><span id="foGrade"></span></div>
               </div>
               <div class="folha-sec"><div class="folha-obs"><b>Observação</b><div id="foObs"></div></div></div>
@@ -563,14 +581,20 @@ function drawLabel(){const sel=document.getElementById('printSelect');if(!sel)re
 }
 function drawFolha(p){
   const g=i=>document.getElementById(i); if(!g('foCli'))return;
-  if(!p){['foCli','foCpf','foTel','foEnd','foNum','foMat','foGrade','foObs'].forEach(i=>g(i).textContent='');return;}
+  const ids=['foCli','foCpf','foTel','foEnd','foNum','foMat','foQtdMat','foRef','foQtd','foCores','foLarg','foGrade','foObs'];
+  if(!p){ids.forEach(i=>{if(g(i))g(i).textContent='';});return;}
   const cl=CLIENTES.find(c=>c.id===p.cliente_id)||{};
   g('foCli').textContent=p.cliente||'—';
   g('foCpf').textContent=cl.cpf_cnpj||'—';
   g('foTel').textContent=cl.telefone||'—';
   g('foEnd').textContent=cl.endereco||'—';
   g('foNum').textContent=p.codigo;
-  g('foMat').textContent=[p.material,p.qtd_material,p.ref_molde].filter(Boolean).join('   ·   ')||'—';
+  g('foMat').textContent=p.material||'—';
+  g('foQtdMat').textContent=p.qtd_material||'—';
+  g('foRef').textContent=p.ref_molde||'—';
+  g('foQtd').textContent=p.quantidade||'—';
+  g('foCores').textContent=p.cores||'—';
+  g('foLarg').textContent=p.largura_bobina||'—';
   g('foGrade').textContent=p.grade||'—';
   g('foObs').textContent=p.obs||'';
 }
@@ -722,7 +746,8 @@ document.getElementById('formPedido').addEventListener('submit',async e=>{
     p_cliente_id:selectedClienteId, p_cliente_nome:f.cliente.value.trim(),
     p_cpf:f.cpf.value.trim()||null, p_endereco:f.endereco.value.trim()||null, p_telefone:f.telefone.value.trim()||null,
     p_numero:f.numero.value.trim()||null, p_material:f.material.value.trim()||null, p_qtd_material:f.qtd.value.trim()||null,
-    p_ref_molde:f.refmolde.value.trim()||null, p_grade:f.grade.value.trim()||null, p_obs:f.obs.value.trim()||null});
+    p_ref_molde:f.refmolde.value.trim()||null, p_grade:f.grade.value.trim()||null, p_obs:f.obs.value.trim()||null,
+    p_quantidade:f.quantidade.value.trim()||null, p_cores:f.cores.value.trim()||null, p_largura_bobina:f.largura.value.trim()||null});
   btn.disabled=false;
   if(!r.ok){alert('Erro ao criar pedido: '+(r.msg||'')); if((r.msg||'').includes('autoriz'))relogar(); return;}
   await loadAll(); await loadClientes(); resetForm();
