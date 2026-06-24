@@ -94,7 +94,7 @@
   .tk{border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--surface);box-shadow:var(--shadow-sm)}
   .tk .cli{font-weight:620;font-size:13.5px} .tk .meta{color:var(--muted);font-size:12px;margin-top:2px;display:flex;justify-content:space-between;gap:8px}
   .col.c-risco .colhead{color:#7a4ad8}.col.c-enf .colhead{color:#185fa5}.col.c-cor .colhead{color:var(--amber)}.col.c-nota .colhead{color:#0f9d8f}.col.c-pr .colhead{color:var(--green)}
-  .tcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .tcols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
   .tcol{border-right:1px solid var(--line);min-width:0}.tcol:last-child{border-right:0}
   .tcolhead{padding:10px 12px;font-weight:620;font-size:13px;border-bottom:1px solid var(--line)}.tcolhead span{color:var(--muted);font-weight:400;font-size:12px}
   .trow{display:flex;flex-direction:column;padding:7px 12px;border-bottom:1px solid var(--line)}.trow:last-child{border-bottom:0}
@@ -134,6 +134,9 @@
   .folha-cols3 .fc:last-child,.folha-cols2 .fc:last-child{border-right:0}
   .fc-h{font-size:10.5px;color:#999;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px}
   .fc-v{font-size:15px;color:#111;min-height:20px}
+  .clientebox{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 18px 12px}
+  .clientehead{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+  .cnome{font-weight:620;font-size:14.5px}
   @media(max-width:880px){.printgrid{grid-template-columns:1fr}}
 
   .timelog{max-height:340px;overflow:auto}
@@ -330,6 +333,10 @@
     <div class="card" style="margin-bottom:22px">
       <div class="head"><div><h2>Usuários e estações</h2><div class="sub">Libere quem fez login e atribua a estação. Sem isso, ninguém usa o sistema.</div></div><button class="btn ghost" id="reloadUsers">Atualizar</button></div>
       <div style="overflow-x:auto"><table id="usersTable"></table></div>
+    </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="head"><div><h2>Clientes &amp; pedidos</h2><div class="sub">Todos os clientes e o histórico (inclui concluídos) — busca por nome, código ou ref</div></div><input type="text" id="cliSearch" placeholder="Buscar cliente / código / ref..." style="max-width:300px" /></div>
+      <div id="clientesPanel" style="padding:12px 0"></div>
     </div>
     <div class="card">
       <div class="head"><div><h2>Cancelar bipe</h2><div class="sub">Desfaz uma etapa bipada por engano (e as seguintes)</div></div></div>
@@ -538,7 +545,10 @@ function renderTimelog(){
   const pmap={};PEDIDOS.forEach(p=>pmap[p.id]=p);
   const byStage={risco:[],enfesto:[],corte:[],nota:[]};
   EVENTOS.forEach(e=>{if(byStage[e.stage])byStage[e.stage].push(e);});
-  el.innerHTML='<div class="tcols">'+STAGES.map(s=>{
+  const lanc=PEDIDOS.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const lancRows=lanc.slice(0,30).map(p=>'<div class="trow"><span class="when">'+fmtTime(p.created_at)+'</span><span class="tcli">'+esc(p.cliente)+'</span><span class="top">'+esc(p.codigo)+'</span></div>').join('')||'<div class="tempty">—</div>';
+  const lancCol='<div class="tcol"><div class="tcolhead" style="color:var(--muted)">Lançado <span>('+lanc.length+')</span></div><div class="tbody">'+lancRows+'</div></div>';
+  el.innerHTML='<div class="tcols">'+lancCol+STAGES.map(s=>{
     const evs=byStage[s]||[];
     const rows=evs.slice(0,30).map(e=>{const p=pmap[e.pedido_id]||{};return '<div class="trow"><span class="when">'+fmtTime(e.ts)+'</span><span class="tcli">'+(esc(p.cliente)||esc(e.codigo))+'</span><span class="top">'+(esc(e.operador)||'')+'</span></div>';}).join('')||'<div class="tempty">— sem bipes —</div>';
     return '<div class="tcol"><div class="tcolhead" style="color:'+STAGE_COLOR[s]+'">'+STAGE_LABEL[s]+' <span>('+evs.length+')</span></div><div class="tbody">'+rows+'</div></div>';
@@ -568,8 +578,9 @@ function renderGargalo(){const st=gargaloStats(),mx=Math.max(...STAGES.map(s=>st
     return `<div class="gbar ${isMax?'max':''}"><div class="gname"><span>${STAGE_LABEL[s]}</span><span style="font-size:12px;color:var(--muted)">${a.n} pedido(s)</span></div><div class="gtime">${a.n?fmtDur(a.avg):'—'}</div><div class="track"><div class="fill" style="width:${a.n?Math.round(a.avg/mx*100):0}%"></div></div></div>`;}).join('');
 }
 function renderPrintSelect(){const sel=document.getElementById('printSelect');if(!sel)return;const cur=sel.value;
-  sel.innerHTML=PEDIDOS.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(p=>`<option value="${p.id}">${esc(p.cliente)} · ${esc(p.numero)||esc(p.codigo)}</option>`).join('');
-  if(cur&&PEDIDOS.some(p=>p.id===cur))sel.value=cur; drawLabel();}
+  const abertos=openPedidos().slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  sel.innerHTML=abertos.map(p=>`<option value="${p.id}">${esc(p.cliente)} · ${esc(p.numero)||esc(p.codigo)}</option>`).join('');
+  if(cur&&abertos.some(p=>p.id===cur))sel.value=cur; drawLabel();}
 function drawLabel(){const sel=document.getElementById('printSelect');if(!sel)return;const p=pedById(sel.value);
   const cli=document.getElementById('lblCli');
   if(!p){cli.textContent='—';['lblRef','lblNum','lblPrazo'].forEach(i=>document.getElementById(i).textContent='');document.getElementById('lblBarcode').innerHTML='';drawFolha(null);return;}
@@ -647,8 +658,21 @@ function renderAdmin(){
   t.innerHTML=`<thead><tr><th>Cliente</th><th>Nº</th><th>Código</th><th>Cancelar etapa (cascata)</th></tr></thead><tbody>${body}</tbody>`;
 }
 document.getElementById('reloadUsers').addEventListener('click',loadUsers);
+document.getElementById('cliSearch').addEventListener('input',renderClientesPanel);
+function statusPedido(p){if(isFinalizado(p))return '<span class="pill sim">Concluído</span>';const e=etapaOf(p);return '<span class="pill pend">'+(e==='pronto'?'Pronto':'Em '+STAGE_LABEL[e])+'</span>';}
+function renderClientesPanel(){
+  const el=document.getElementById('clientesPanel'); if(!el)return;
+  const q=((document.getElementById('cliSearch')||{}).value||'').trim().toLowerCase();
+  const cards=CLIENTES.map(c=>{
+    const peds=PEDIDOS.filter(p=>p.cliente_id===c.id).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    if(q){const hit=c.nome.toLowerCase().includes(q)||((c.cpf_cnpj||'').toLowerCase().includes(q))||peds.some(p=>(p.codigo||'').toLowerCase().includes(q)||(p.ref_molde||'').toLowerCase().includes(q)||(p.material||'').toLowerCase().includes(q)||(p.numero||'').toLowerCase().includes(q));if(!hit)return '';}
+    const rows=peds.map(p=>'<tr><td class="code">'+esc(p.codigo)+'</td><td>'+(esc(p.numero)||'—')+'</td><td class="ref">'+(esc(p.ref_molde||p.material)||'—')+'</td><td>'+statusPedido(p)+'</td><td class="ref">'+new Date(p.created_at).toLocaleDateString('pt-BR')+'</td></tr>').join('')||'<tr><td colspan="5" class="ref" style="padding:8px 12px">sem pedidos</td></tr>';
+    return '<div class="clientebox"><div class="clientehead"><div><span class="cnome">'+esc(c.nome)+'</span> <span class="ref">'+(esc(c.cpf_cnpj)||'')+'</span></div><span class="ref">'+peds.length+' pedido(s)</span></div><div class="ref" style="font-size:12px;margin-bottom:8px">'+(esc(c.telefone)||'')+(c.endereco?(' · '+esc(c.endereco)):'')+'</div><table><thead><tr><th>Código</th><th>Nº</th><th>Ref/Material</th><th>Status</th><th>Data</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }).filter(Boolean).join('');
+  el.innerHTML=cards||'<div class="empty">Nenhum cliente'+(q?(' pra "'+esc(q)+'"'):' ainda')+'.</div>';
+}
 
-function renderAll(){if(!canPainel())return;renderStats();renderPainel();renderTimelog();renderBoard();renderGargalo();renderPrintSelect();renderAdmin();}
+function renderAll(){if(!canPainel())return;renderStats();renderPainel();renderTimelog();renderBoard();renderGargalo();renderPrintSelect();renderAdmin();renderClientesPanel();}
 
 /* ---------- BIPAR (estações) ---------- */
 function renderBip(){
@@ -719,7 +743,7 @@ function go(v){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='v-'+v));
   if(v==='estacoes')renderBip();
-  if(v==='admin'&&isGerente())loadUsers();
+  if(v==='admin'&&isGerente()){loadUsers();loadClientes().then(renderClientesPanel);}
   if(v==='impressao')drawLabel();
   if(v==='lancar')setNextNumero();
 }
