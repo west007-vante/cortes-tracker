@@ -86,14 +86,20 @@
   textarea{resize:vertical;min-height:64px} .row-inline{display:flex;gap:8px;align-items:center}
   .empty{padding:48px 20px;text-align:center;color:var(--muted)} .empty .big{font-size:15px;color:var(--ink);font-weight:600;margin-bottom:4px}
 
-  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
   .col{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;min-height:120px}
   .col .colhead{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--line);font-weight:620;font-size:13.5px}
   .col .colhead .badge{background:var(--bg);color:var(--muted);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
   .col .body{padding:12px;display:flex;flex-direction:column;gap:10px}
   .tk{border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--surface);box-shadow:var(--shadow-sm)}
   .tk .cli{font-weight:620;font-size:13.5px} .tk .meta{color:var(--muted);font-size:12px;margin-top:2px;display:flex;justify-content:space-between;gap:8px}
-  .col.c-risco .colhead{color:#7a4ad8}.col.c-enf .colhead{color:#185fa5}.col.c-cor .colhead{color:var(--amber)}.col.c-pr .colhead{color:var(--green)}
+  .col.c-risco .colhead{color:#7a4ad8}.col.c-enf .colhead{color:#185fa5}.col.c-cor .colhead{color:var(--amber)}.col.c-nota .colhead{color:#0f9d8f}.col.c-pr .colhead{color:var(--green)}
+  .tcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .tcol{border-right:1px solid var(--line);min-width:0}.tcol:last-child{border-right:0}
+  .tcolhead{padding:10px 12px;font-weight:620;font-size:13px;border-bottom:1px solid var(--line)}.tcolhead span{color:var(--muted);font-weight:400;font-size:12px}
+  .trow{display:flex;flex-direction:column;padding:7px 12px;border-bottom:1px solid var(--line)}.trow:last-child{border-bottom:0}
+  .trow .when{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}.trow .tcli{font-weight:550;font-size:12.5px}.trow .top{color:var(--muted);font-size:11px}
+  .tempty{color:var(--muted);font-size:12px;padding:10px 12px}
 
   .bigchoice{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;max-width:640px;margin:0 auto}
   .choice{cursor:pointer;background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:26px 18px;text-align:center;box-shadow:var(--shadow-sm);transition:.15s}
@@ -105,16 +111,30 @@
   .stationbadge{font-size:20px;font-weight:680}
 
   .labelwrap{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;padding:20px}
-  .label{width:100mm;height:30mm;border:1px dashed #cbd2de;background:#fff;padding:1.5mm 2.5mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
-  .label .lhead{display:flex;justify-content:space-between;font-size:3.2mm;font-weight:700;line-height:1.1}
-  .label svg{width:100%;height:15mm;display:block}
-  .label .lfoot{display:flex;justify-content:space-between;font-size:2.6mm;color:#333}
+  .label{width:60mm;height:40mm;border:1px dashed #cbd2de;background:#fff;padding:2.5mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+  .label .lhead{display:flex;justify-content:space-between;font-size:3.6mm;font-weight:700;line-height:1.15}
+  .label svg{width:100%;height:20mm;display:block}
+  .label .lfoot{display:flex;justify-content:space-between;font-size:2.9mm;color:#333}
+  .printgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px}
+  .printsec-t{font-weight:620;font-size:13.5px;margin-bottom:10px}
+  .folha-preview{border:1px solid var(--line);border-radius:10px;padding:22px;background:#fff;max-height:480px;overflow:auto}
+  .folha{color:#111;font-family:Georgia,'Times New Roman',serif}
+  .folha-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:16px}
+  .folha-doc{text-align:right;font-size:13px;letter-spacing:3px;color:#555}
+  .folha-num{font-size:20px;font-weight:700;letter-spacing:0;color:#111;margin-top:4px;font-family:ui-monospace,monospace}
+  .folha-sec{border:1px solid #e2e2e2;border-radius:6px;padding:6px 14px;margin-bottom:12px}
+  .folha-row{display:flex;gap:12px;padding:6px 0;font-size:14px;border-bottom:1px solid #f1f1f1}
+  .folha-row:last-child{border-bottom:0}
+  .folha-row b{min-width:185px;color:#555;font-weight:600;font-size:13px}
+  .folha-obs b{display:block;color:#555;margin-bottom:6px;font-size:13px}
+  .folha-obs div{min-height:54px}
+  @media(max-width:880px){.printgrid{grid-template-columns:1fr}}
 
   .timelog{max-height:340px;overflow:auto}
   .logrow{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);font-size:13px;gap:10px} .logrow:last-child{border-bottom:0}
   .logrow .when{font-family:ui-monospace,monospace;color:var(--muted);font-size:12px;margin-right:10px} .logrow .stg{font-weight:600}
 
-  .gargalo{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:20px}
+  .gargalo{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;padding:20px}
   .gbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm)}
   .gbar .gname{font-weight:620;font-size:14px;display:flex;justify-content:space-between;align-items:center}
   .gbar .gtime{font-size:24px;font-weight:680;margin:8px 0 10px} .gbar .track{height:8px;background:var(--bg);border-radius:999px;overflow:hidden}
@@ -142,9 +162,12 @@
   @media print{.themebtn,.themepanel{display:none!important}}
   @media(max-width:880px){.form{grid-template-columns:1fr}.board{grid-template-columns:1fr 1fr}.gargalo{grid-template-columns:1fr}table{font-size:12px}}
   @media print{
-    @page{size:100mm 30mm;margin:0}
-    body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
-    #printArea{position:absolute;left:0;top:0} .label{border:none}
+    body *{visibility:hidden}
+    body.print-label #printArea, body.print-label #printArea *{visibility:visible}
+    body.print-label #printArea{position:absolute;left:0;top:0}
+    body.print-folha #folhaArea, body.print-folha #folhaArea *{visibility:visible}
+    body.print-folha #folhaArea{position:absolute;left:0;top:0;width:100%}
+    .label{border:none}
   }
 </style>
 </head>
@@ -211,16 +234,26 @@
     <div class="card">
       <div class="head"><div><h2>Lançar pedido</h2><div class="sub">Rápido, dá pra digitar tudo no teclado</div></div></div>
       <form class="form" id="formPedido" autocomplete="off">
-        <div class="field"><label>Cliente *</label><input type="text" name="cliente" required placeholder="Ex: Henrique Veiga" /></div>
+        <div class="field full"><label>Cliente *</label>
+          <input type="text" name="cliente" id="clienteInput" list="clientesList" required placeholder="Digite ou escolha um cliente já cadastrado" />
+          <datalist id="clientesList"></datalist>
+          <span class="hint" id="clienteHint">Cliente novo? preencha CPF/endereço. Já cadastrado? escolha na lista e preenche sozinho.</span>
+        </div>
+        <div class="field"><label>CPF / CNPJ</label><input type="text" name="cpf" id="cpfInput" placeholder="cliente novo" /></div>
+        <div class="field"><label>Telefone</label><input type="text" name="telefone" id="telInput" /></div>
+        <div class="field full"><label>Endereço</label><input type="text" name="endereco" id="endInput" /></div>
+        <div class="field"><label>Material</label><input type="text" name="material" placeholder="Ex: Malha" /></div>
+        <div class="field"><label>Quantidade de material</label><input type="text" name="qtd" placeholder="Ex: 50m / 12kg" /></div>
+        <div class="field"><label>Referência do molde</label><input type="text" name="refmolde" placeholder="Ex: MOL-7" /></div>
+        <div class="field"><label>Grade (descrição)</label><input type="text" name="grade" placeholder="Ex: P-M-G-GG" /></div>
         <div class="field"><label>Nº do Pedido</label>
           <div class="row-inline"><input type="text" name="numero" id="numeroInput" placeholder="gerado pelo sistema" /><button type="button" class="btn ghost" id="clearNumero">Remover</button></div>
-          <span class="hint">Sugestão automática — editável/removível. O código de barras é único de qualquer jeito.</span>
+          <span class="hint">Automático — o código de barras é único de qualquer jeito.</span>
         </div>
-        <div class="field"><label>Referência (REF)</label><input type="text" name="ref" placeholder="Ex: CAMISETA CARECA" /></div>
         <div class="field"><label>Prazo de entrega</label><input type="date" name="prazo" /></div>
-        <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Opcional"></textarea></div>
+        <div class="field full"><label>Observação</label><textarea name="obs" placeholder="Opcional"></textarea></div>
         <div class="field full row-inline" style="justify-content:flex-end">
-          <button type="button" class="btn ghost" onclick="document.getElementById('formPedido').reset();setNextNumero()">Limpar</button>
+          <button type="button" class="btn ghost" onclick="resetForm()">Limpar</button>
           <button type="submit" class="btn primary" id="btnCriar">Criar pedido + gerar código</button>
         </div>
       </form>
@@ -229,16 +262,41 @@
 
   <section class="view" id="v-impressao">
     <div class="card">
-      <div class="head"><div><h2>Sala de impressão</h2><div class="sub">Etiqueta térmica 100×30mm — código de barras (Code128)</div></div><select id="printSelect" style="max-width:320px"></select></div>
-      <div class="labelwrap">
-        <div id="printArea"><div class="label" id="theLabel">
-          <div class="lhead"><span id="lblCli">—</span><span id="lblPrazo"></span></div>
-          <svg id="lblBarcode"></svg>
-          <div class="lfoot"><span id="lblRef"></span><span id="lblNum"></span></div>
-        </div></div>
-        <div style="flex:1;min-width:240px">
-          <p style="color:var(--muted);margin-top:0">Etiqueta no tamanho exato 100mm × 30mm, só código de barras (o QR foi removido — não cabe). Na impressora térmica, defina o papel 100×30 (2 colunas).</p>
-          <button class="btn primary" onclick="window.print()">Imprimir etiqueta</button>
+      <div class="head"><div><h2>Sala de impressão</h2><div class="sub">Duas impressões SEPARADAS — etiqueta e folha do pedido</div></div><select id="printSelect" style="max-width:320px"></select></div>
+      <div class="printgrid">
+        <div>
+          <div class="printsec-t">1 · Etiqueta — código de barras (60×40mm)</div>
+          <div id="printArea"><div class="label" id="theLabel">
+            <div class="lhead"><span id="lblCli">—</span><span id="lblPrazo"></span></div>
+            <svg id="lblBarcode"></svg>
+            <div class="lfoot"><span id="lblRef"></span><span id="lblNum"></span></div>
+          </div></div>
+          <p style="color:var(--muted);font-size:12.5px">Impressora térmica, papel 60×40mm.</p>
+          <button class="btn primary" onclick="imprimirEtiqueta()">Imprimir etiqueta</button>
+        </div>
+        <div>
+          <div class="printsec-t">2 · Folha do pedido (A4) — pro cliente</div>
+          <div class="folha-preview"><div id="folhaArea">
+            <div class="folha">
+              <div class="folha-top">
+                <div class="folha-logo"><svg viewBox="0 0 230 132" width="116" xmlns="http://www.w3.org/2000/svg" aria-label="GF Corte Automatizado"><g fill="none" stroke="#111" stroke-width="3.4" stroke-linecap="round"><path d="M84 26 A42 42 0 1 0 84 100"/><path d="M84 63 L106 63 L106 84"/><path d="M112 28 L112 98"/><path d="M112 30 L150 30"/><path d="M112 63 L140 63"/></g><text x="115" y="126" text-anchor="middle" font-family="Georgia, serif" font-size="12.5" letter-spacing="4.5" fill="#111">CORTE AUTOMATIZADO</text></svg></div>
+                <div class="folha-doc">PEDIDO<div class="folha-num" id="foNum"></div></div>
+              </div>
+              <div class="folha-sec">
+                <div class="folha-row"><b>Cliente</b><span id="foCli"></span></div>
+                <div class="folha-row"><b>CPF / CNPJ</b><span id="foCpf"></span></div>
+                <div class="folha-row"><b>Telefone</b><span id="foTel"></span></div>
+                <div class="folha-row"><b>Endereço</b><span id="foEnd"></span></div>
+              </div>
+              <div class="folha-sec">
+                <div class="folha-row"><b>Material / Qtd / Ref. molde</b><span id="foMat"></span></div>
+                <div class="folha-row"><b>Grade</b><span id="foGrade"></span></div>
+              </div>
+              <div class="folha-sec"><div class="folha-obs"><b>Observação</b><div id="foObs"></div></div></div>
+            </div>
+          </div></div>
+          <p style="color:var(--muted);font-size:12.5px">Papel A4 comum.</p>
+          <button class="btn primary" onclick="imprimirFolha()">Imprimir folha A4</button>
         </div>
       </div>
     </div>
@@ -286,15 +344,16 @@ let authMode='login';
 let gStation=null, enfMaquina=null, activeBipStation=null, activeBipOperador=null;
 let rtChannel=null;
 
-const STAGES=['risco','enfesto','corte'];
-const STAGE_LABEL={risco:'Risco',enfesto:'Enfesto',corte:'Corte'};
-const STAGE_COLOR={risco:'#7a4ad8',enfesto:'#185fa5',corte:'#b7791f'};
-const PAPEL_LABEL={gerente:'Gerente',risco:'Risco (cria pedidos)',enfesto:'Enfesto',corte:'Corte'};
+const STAGES=['risco','enfesto','corte','nota'];
+const STAGE_LABEL={risco:'Risco',enfesto:'Enfesto',corte:'Corte',nota:'Nota'};
+const STAGE_COLOR={risco:'#7a4ad8',enfesto:'#185fa5',corte:'#b7791f',nota:'#0f9d8f'};
+const PAPEL_LABEL={gerente:'Gerente',risco:'Risco (cria pedidos)',enfesto:'Enfesto',corte:'Corte',nota:'Nota'};
 const TABS_BY_ROLE={
   gerente:['painel','board','lancar','impressao','estacoes','gargalo','admin'],
   risco:['painel','board','lancar','impressao','estacoes','gargalo'],
-  enfesto:['estacoes'], corte:['estacoes']
+  enfesto:['estacoes'], corte:['estacoes'], nota:['estacoes']
 };
+let CLIENTES=[];
 const TAB_LABEL={painel:'Painel',board:'Quadro',lancar:'Lançar pedido',impressao:'Impressão',estacoes:'Bipar',gargalo:'Gargalo',admin:'Admin'};
 
 function loadAuth(){try{return JSON.parse(localStorage.getItem(AUTHKEY))||null;}catch(e){return null;}}
@@ -365,7 +424,7 @@ function enterApp(){
   nav.innerHTML=tabs.map((t,i)=>`<button data-v="${t}" class="${i===0?'active':''}">${TAB_LABEL[t]}</button>`).join('');
   document.getElementById('scanIndicator').style.display=(currentUser.papel!=='gerente'&&currentUser.papel!=='risco')?'none':'flex';
   go(tabs[0]);
-  if(canPainel()){ loadAll(); subscribeRealtime(); }
+  if(canPainel()){ loadAll(); loadClientes(); subscribeRealtime(); }
   else { document.getElementById('connPill').style.display='none'; }
 }
 function subscribeRealtime(){
@@ -392,8 +451,8 @@ function setConn(ok,msg){const dot=document.getElementById('connDot'),pill=docum
   if(ok){dot.className='dot';pill.lastChild.textContent=' online';}else{dot.className='dot off';pill.lastChild.textContent=' offline'+(msg?(' — '+msg).slice(0,50):'');}}
 
 /* ---------- lógica ---------- */
-function etapaOf(p){if(p.corte)return 'pronto';if(p.enfesto)return 'corte';if(p.risco)return 'enfesto';return 'risco';}
-function isFinalizado(p){return p.risco&&p.enfesto&&p.corte&&p.nota&&p.retirada;} /* pagamento NÃO conta */
+function etapaOf(p){if(p.nota)return 'pronto';if(p.corte)return 'nota';if(p.enfesto)return 'corte';if(p.risco)return 'enfesto';return 'risco';}
+function isFinalizado(p){return !!p.retirada;} /* some só quando RETIRADO; "Pronto" = corte+nota feitos */
 function openPedidos(){return PEDIDOS.filter(p=>!isFinalizado(p));}
 function pedById(id){return PEDIDOS.find(p=>p.id===id);}
 
@@ -450,22 +509,25 @@ function renderPainel(){
     body+=`<tr style="${fin?'opacity:.6':''}">
       <td>${ord}</td><td class="cli">${esc(p.cliente)||'—'}</td><td>${esc(p.numero)||'<span class="ref">—</span>'}</td>
       <td class="ref">${esc(p.ref)||'—'}</td><td class="prazo ${isLate(p)?'late':''}">${fmtPrazo(p.prazo)}</td>
-      <td>${st('risco')}</td><td>${st('enfesto')}</td><td>${st('corte')}</td>
-      <td>${pillTog(p.id,'nota','Sim','Não')}</td><td>${pg}</td><td>${pillTog(p.id,'retirada','Sim','Não')}</td>
+      <td>${st('risco')}</td><td>${st('enfesto')}</td><td>${st('corte')}</td><td>${st('nota')}</td>
+      <td>${pg}</td><td>${pillTog(p.id,'retirada','Sim','Não')}</td>
       <td class="code">${esc(p.codigo)}</td>${del}</tr>`;
   });
   t.innerHTML=`<thead><tr><th>Ord.</th><th>Cliente</th><th>Nº</th><th>REF</th><th>Prazo</th><th>Risco</th><th>Enfesto</th><th>Corte</th><th>Nota</th><th>Pgto</th><th>Retirada</th><th>Código</th>${ger?'<th></th>':(canPainel()?'<th></th>':'')}</tr></thead><tbody>${body}</tbody>`;
 }
 function renderTimelog(){
   const el=document.getElementById('timelog');
-  if(!EVENTOS.length){el.innerHTML='<div class="empty">Nenhum bipe ainda.</div>';return;}
-  const pmap={};PEDIDOS.forEach(p=>pmap[p.id]=p);const color={risco:'#7a4ad8',enfesto:'#185fa5',corte:'var(--amber)'};
-  el.innerHTML=EVENTOS.slice(0,40).map(e=>{const p=pmap[e.pedido_id]||{};return `<div class="logrow">
-    <span><span class="when">${fmtTime(e.ts)}</span>${esc(p.cliente)||esc(e.codigo)}${p.numero?(' · '+esc(p.numero)):''} <span style="color:var(--muted)">→</span> <span class="stg" style="color:${color[e.stage]||'inherit'}">${STAGE_LABEL[e.stage]||e.stage}</span> <span style="color:var(--muted);font-size:12px">· ${esc(e.operador)||'—'}</span></span>
-    <span class="code">${esc(e.codigo)}</span></div>`;}).join('');
+  const pmap={};PEDIDOS.forEach(p=>pmap[p.id]=p);
+  const byStage={risco:[],enfesto:[],corte:[],nota:[]};
+  EVENTOS.forEach(e=>{if(byStage[e.stage])byStage[e.stage].push(e);});
+  el.innerHTML='<div class="tcols">'+STAGES.map(s=>{
+    const evs=byStage[s]||[];
+    const rows=evs.slice(0,30).map(e=>{const p=pmap[e.pedido_id]||{};return '<div class="trow"><span class="when">'+fmtTime(e.ts)+'</span><span class="tcli">'+(esc(p.cliente)||esc(e.codigo))+'</span><span class="top">'+(esc(e.operador)||'')+'</span></div>';}).join('')||'<div class="tempty">— sem bipes —</div>';
+    return '<div class="tcol"><div class="tcolhead" style="color:'+STAGE_COLOR[s]+'">'+STAGE_LABEL[s]+' <span>('+evs.length+')</span></div><div class="tbody">'+rows+'</div></div>';
+  }).join('')+'</div>';
 }
 function renderBoard(){
-  const cols=[['risco','Risco','c-risco'],['enfesto','Enfesto','c-enf'],['corte','Corte','c-cor'],['pronto','Pronto','c-pr']];
+  const cols=[['risco','Risco','c-risco'],['enfesto','Enfesto','c-enf'],['corte','Corte','c-cor'],['nota','Nota','c-nota'],['pronto','Pronto','c-pr']];
   document.getElementById('board').innerHTML=cols.map(([key,label,cls])=>{
     const items=openPedidos().filter(p=>etapaOf(p)===key);
     const cards=items.map(p=>`<div class="tk"><div class="cli">${esc(p.cliente)}</div><div class="meta"><span>${esc(p.ref)||'—'}</span><span class="code">${esc(p.numero)||esc(p.codigo)}</span></div></div>`).join('')||'<div style="color:var(--muted);font-size:12px;padding:4px">vazio</div>';
@@ -473,12 +535,13 @@ function renderBoard(){
   }).join('');
 }
 function gargaloStats(){
-  const acc={risco:{s:0,n:0},enfesto:{s:0,n:0},corte:{s:0,n:0}},byP={};
+  const acc={risco:{s:0,n:0},enfesto:{s:0,n:0},corte:{s:0,n:0},nota:{s:0,n:0}},byP={};
   EVENTOS.forEach(e=>{const m=byP[e.pedido_id]=byP[e.pedido_id]||{};const t=new Date(e.ts).getTime();if(m[e.stage]==null||t<m[e.stage])m[e.stage]=t;});
   PEDIDOS.forEach(p=>{const ev=byP[p.id]||{},c=new Date(p.created_at).getTime();
     if(ev.risco){acc.risco.s+=ev.risco-c;acc.risco.n++;}
     if(ev.enfesto&&ev.risco){acc.enfesto.s+=ev.enfesto-ev.risco;acc.enfesto.n++;}
-    if(ev.corte&&ev.enfesto){acc.corte.s+=ev.corte-ev.enfesto;acc.corte.n++;}});
+    if(ev.corte&&ev.enfesto){acc.corte.s+=ev.corte-ev.enfesto;acc.corte.n++;}
+    if(ev.nota&&ev.corte){acc.nota.s+=ev.nota-ev.corte;acc.nota.n++;}});
   const o={};STAGES.forEach(s=>o[s]={avg:acc[s].n?acc[s].s/acc[s].n:0,n:acc[s].n});return o;
 }
 function worstGargalo(){const s=gargaloStats();let b=null;STAGES.forEach(k=>{if(s[k].n>0&&(!b||s[k].avg>b.avg))b={stage:k,avg:s[k].avg};});return b;}
@@ -491,12 +554,35 @@ function renderPrintSelect(){const sel=document.getElementById('printSelect');if
   if(cur&&PEDIDOS.some(p=>p.id===cur))sel.value=cur; drawLabel();}
 function drawLabel(){const sel=document.getElementById('printSelect');if(!sel)return;const p=pedById(sel.value);
   const cli=document.getElementById('lblCli');
-  if(!p){cli.textContent='—';['lblRef','lblNum','lblPrazo'].forEach(i=>document.getElementById(i).textContent='');document.getElementById('lblBarcode').innerHTML='';return;}
-  cli.textContent=p.cliente; document.getElementById('lblRef').textContent=p.ref||'';
+  if(!p){cli.textContent='—';['lblRef','lblNum','lblPrazo'].forEach(i=>document.getElementById(i).textContent='');document.getElementById('lblBarcode').innerHTML='';drawFolha(null);return;}
+  cli.textContent=p.cliente; document.getElementById('lblRef').textContent=p.ref||p.material||'';
   document.getElementById('lblNum').textContent=p.numero?('Nº '+p.numero):p.codigo;
   document.getElementById('lblPrazo').textContent=p.prazo?fmtPrazo(p.prazo):'';
-  try{JsBarcode('#lblBarcode',p.codigo,{format:'CODE128',height:48,fontSize:13,margin:0,displayValue:true,width:1.6});}catch(e){}
+  try{JsBarcode('#lblBarcode',p.codigo,{format:'CODE128',height:60,fontSize:14,margin:0,displayValue:true,width:1.3});}catch(e){}
+  drawFolha(p);
 }
+function drawFolha(p){
+  const g=i=>document.getElementById(i); if(!g('foCli'))return;
+  if(!p){['foCli','foCpf','foTel','foEnd','foNum','foMat','foGrade','foObs'].forEach(i=>g(i).textContent='');return;}
+  const cl=CLIENTES.find(c=>c.id===p.cliente_id)||{};
+  g('foCli').textContent=p.cliente||'—';
+  g('foCpf').textContent=cl.cpf_cnpj||'—';
+  g('foTel').textContent=cl.telefone||'—';
+  g('foEnd').textContent=cl.endereco||'—';
+  g('foNum').textContent=p.codigo;
+  g('foMat').textContent=[p.material,p.qtd_material,p.ref_molde].filter(Boolean).join('   ·   ')||'—';
+  g('foGrade').textContent=p.grade||'—';
+  g('foObs').textContent=p.obs||'';
+}
+function printWith(pageCss,cls){
+  const st=document.createElement('style');st.textContent='@media print{@page{'+pageCss+'}}';document.head.appendChild(st);
+  document.body.classList.add(cls);
+  function done(){document.body.classList.remove(cls);st.remove();window.removeEventListener('afterprint',done);}
+  window.addEventListener('afterprint',done);
+  window.print();
+}
+function imprimirEtiqueta(){printWith('size:60mm 40mm;margin:0','print-label');}
+function imprimirFolha(){printWith('size:A4;margin:12mm','print-folha');}
 
 /* ---------- admin (gerente) ---------- */
 async function loadUsers(){
@@ -620,12 +706,26 @@ document.getElementById('printSelect').addEventListener('change',drawLabel);
 /* ---------- lançar ---------- */
 function setNextNumero(){const el=document.getElementById('numeroInput');if(!el)return;const nums=PEDIDOS.map(p=>parseInt(p.numero,10)).filter(n=>!isNaN(n));el.value=String((nums.length?Math.max.apply(null,nums):0)+1).padStart(3,'0');}
 document.getElementById('clearNumero').addEventListener('click',()=>{document.getElementById('numeroInput').value='';});
+let selectedClienteId=null;
+function loadClientes(){return rpc('listar_clientes',{p_token:currentUser.token}).then(r=>{if(r&&r.ok){CLIENTES=r.clientes||[];renderClientesDatalist();}});}
+function renderClientesDatalist(){const dl=document.getElementById('clientesList');if(dl)dl.innerHTML=CLIENTES.map(c=>'<option value="'+esc(c.nome)+'"></option>').join('');}
+function updateClienteHint(c){const h=document.getElementById('clienteHint');if(!h)return;if(c){h.textContent='✓ Cliente já cadastrado — dados preenchidos sozinho.';h.style.color='var(--green)';}else{h.textContent='Cliente novo? preencha CPF/endereço. Já cadastrado? escolha na lista.';h.style.color='var(--muted)';}}
+function resetForm(){const f=document.getElementById('formPedido');f.reset();selectedClienteId=null;setNextNumero();updateClienteHint(null);}
+document.getElementById('clienteInput').addEventListener('input',function(){
+  const nome=this.value.trim().toLowerCase();const c=CLIENTES.find(x=>x.nome.toLowerCase()===nome);
+  if(c){selectedClienteId=c.id;document.getElementById('cpfInput').value=c.cpf_cnpj||'';document.getElementById('telInput').value=c.telefone||'';document.getElementById('endInput').value=c.endereco||'';updateClienteHint(c);}
+  else{selectedClienteId=null;updateClienteHint(null);}
+});
 document.getElementById('formPedido').addEventListener('submit',async e=>{
   e.preventDefault();const f=e.target,btn=document.getElementById('btnCriar');btn.disabled=true;
-  const r=await rpc('criar_pedido',{p_token:currentUser.token,p_cliente:f.cliente.value.trim(),p_numero:f.numero.value.trim()||null,p_ref:f.ref.value.trim()||null,p_prazo:f.prazo.value||null,p_obs:f.obs.value.trim()||null});
+  const r=await rpc('criar_pedido',{p_token:currentUser.token,
+    p_cliente_id:selectedClienteId, p_cliente_nome:f.cliente.value.trim(),
+    p_cpf:f.cpf.value.trim()||null, p_endereco:f.endereco.value.trim()||null, p_telefone:f.telefone.value.trim()||null,
+    p_numero:f.numero.value.trim()||null, p_material:f.material.value.trim()||null, p_qtd_material:f.qtd.value.trim()||null,
+    p_ref_molde:f.refmolde.value.trim()||null, p_grade:f.grade.value.trim()||null, p_obs:f.obs.value.trim()||null});
   btn.disabled=false;
   if(!r.ok){alert('Erro ao criar pedido: '+(r.msg||'')); if((r.msg||'').includes('autoriz'))relogar(); return;}
-  await loadAll();f.reset();setNextNumero();
+  await loadAll(); await loadClientes(); resetForm();
   const sel=document.getElementById('printSelect');sel.value=r.pedido.id;go('impressao');
 });
 
