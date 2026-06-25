@@ -102,6 +102,11 @@
   .trow{display:flex;flex-direction:column;padding:7px 12px;border-bottom:1px solid var(--line)}.trow:last-child{border-bottom:0}
   .trow .when{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}.trow .tcli{font-weight:550;font-size:12.5px}.trow .top{color:var(--muted);font-size:11px}
   .tempty{color:var(--muted);font-size:12px;padding:10px 12px}
+  .timetab{width:100%;font-size:12.5px}
+  .timetab th{position:sticky;top:0;z-index:1}
+  .timetab .tt-ped{font-weight:400;white-space:nowrap}
+  .tt-h{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
+  .tt-x{color:var(--muted)}
 
   .bigchoice{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;max-width:640px;margin:0 auto}
   .choice{cursor:pointer;background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:26px 18px;text-align:center;box-shadow:var(--shadow-sm);transition:.15s}
@@ -237,7 +242,7 @@
       <div style="overflow-x:auto"><table id="painelTable"></table></div>
     </div>
     <div class="card">
-      <div class="head"><div><h2>Registro de tempo — bipagens</h2><div class="sub">Risco · Enfesto (máquina) · Corte, ao vivo</div></div></div>
+      <div class="head"><div><h2>Registro de tempo — bipagens</h2><div class="sub">Cada pedido numa linha, em sequência: Lançado → Risco → Enfesto → Corte → Nota</div></div></div>
       <div class="timelog" id="timelog"></div>
     </div>
   </section>
@@ -594,17 +599,14 @@ function renderPainel(){
 }
 function renderTimelog(){
   const el=document.getElementById('timelog');
-  const pmap={};PEDIDOS.forEach(p=>pmap[p.id]=p);
-  const byStage={risco:[],enfesto:[],corte:[],nota:[]};
-  EVENTOS.forEach(e=>{if(byStage[e.stage])byStage[e.stage].push(e);});
-  const lanc=PEDIDOS.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const lancRows=lanc.slice(0,30).map(p=>'<div class="trow"><span class="when">'+fmtTime(p.created_at)+'</span><span class="tcli">'+esc(p.cliente)+'</span><span class="top">'+esc(p.codigo)+'</span></div>').join('')||'<div class="tempty">—</div>';
-  const lancCol='<div class="tcol"><div class="tcolhead" style="color:var(--muted)">Lançado <span>('+lanc.length+')</span></div><div class="tbody">'+lancRows+'</div></div>';
-  el.innerHTML='<div class="tcols">'+lancCol+STAGES.map(s=>{
-    const evs=byStage[s]||[];
-    const rows=evs.slice(0,30).map(e=>{const p=pmap[e.pedido_id]||{};return '<div class="trow"><span class="when">'+fmtTime(e.ts)+'</span><span class="tcli">'+(esc(p.cliente)||esc(e.codigo))+'</span><span class="top">'+(esc(e.operador)||'')+'</span></div>';}).join('')||'<div class="tempty">— sem bipes —</div>';
-    return '<div class="tcol"><div class="tcolhead" style="color:'+STAGE_COLOR[s]+'">'+STAGE_LABEL[s]+' <span>('+evs.length+')</span></div><div class="tbody">'+rows+'</div></div>';
-  }).join('')+'</div>';
+  const ev={};EVENTOS.forEach(e=>{const m=ev[e.pedido_id]=ev[e.pedido_id]||{};if(m[e.stage]==null||new Date(e.ts)<new Date(m[e.stage]))m[e.stage]=e.ts;});
+  const peds=PEDIDOS.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,120)
+    .sort((a,b)=>{const c=(a.cliente||'').localeCompare(b.cliente||'',undefined,{sensitivity:'base'});if(c)return c;return String(a.numero||a.codigo||'').localeCompare(String(b.numero||b.codigo||''),undefined,{numeric:true});});
+  if(!peds.length){el.innerHTML='<div class="empty">Nenhum pedido ainda.</div>';return;}
+  const cell=t=>t?'<span class="tt-h">'+fmtTime(t)+'</span>':'<span class="tt-x">—</span>';
+  const rows=peds.map(p=>{const e=ev[p.id]||{};
+    return '<tr><td class="tt-ped"><b>'+(esc(p.numero)||esc(p.codigo))+'</b> · '+esc(p.cliente)+'</td><td>'+cell(p.created_at)+'</td><td>'+cell(e.risco)+'</td><td>'+cell(e.enfesto)+'</td><td>'+cell(e.corte)+'</td><td>'+cell(e.nota)+'</td></tr>';}).join('');
+  el.innerHTML='<table class="timetab"><thead><tr><th>Pedido (Nº · Cliente)</th><th>Lançado</th><th>Risco</th><th>Enfesto</th><th>Corte</th><th>Nota</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 function renderBoard(){
   const cols=[['risco','Risco','c-risco'],['enfesto','Enfesto','c-enf'],['corte','Corte','c-cor'],['nota','Nota','c-nota'],['pronto','Pronto','c-pr']];
