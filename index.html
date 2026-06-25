@@ -10,6 +10,8 @@
 <!-- v3-seg+tema -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <style>
   :root{
     --bg:#f5f6f8; --surface:#ffffff; --ink:#0f1729; --muted:#64708a; --line:#e9ecf1;
@@ -148,6 +150,9 @@
   .gbar .gname{font-weight:620;font-size:14px;display:flex;justify-content:space-between;align-items:center}
   .gbar .gtime{font-size:24px;font-weight:680;margin:8px 0 10px} .gbar .track{height:8px;background:var(--bg);border-radius:999px;overflow:hidden}
   .gbar .fill{height:100%;border-radius:999px;background:var(--accent)} .gbar.max{border-color:var(--amber);background:var(--amber-soft)} .gbar.max .fill{background:var(--amber)}
+  .gchips{display:inline-flex;gap:4px;background:var(--bg);border-radius:10px;padding:4px}
+  .gchip{border:0;background:transparent;color:var(--muted);padding:7px 13px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:550}
+  .gchip.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
 
   .authwrap{min-height:88vh;display:flex;align-items:center;justify-content:center;padding:20px}
   .authcard{width:100%;max-width:380px}
@@ -326,7 +331,19 @@
   <section class="view" id="v-estacoes"><div id="bipArea"></div></section>
 
   <section class="view" id="v-gargalo">
-    <div class="card"><div class="head"><div><h2>Onde o tempo está parando</h2><div class="sub">Tempo médio por etapa — o maior é o gargalo</div></div></div><div class="gargalo" id="gargalo"></div></div>
+    <div class="card">
+      <div class="head">
+        <div><h2>Gargalo — tempo médio por etapa</h2><div class="sub">Do lançamento até cada bipe — onde o tempo trava</div></div>
+        <div class="gchips" id="gchips"><button class="gchip" data-p="hoje">Hoje</button><button class="gchip on" data-p="7">7 dias</button><button class="gchip" data-p="30">30 dias</button><button class="gchip" data-p="custom">Personalizado</button></div>
+      </div>
+      <div id="gCustom" style="display:none;align-items:center;gap:8px;padding:14px 18px 0"><input type="date" id="gd1" style="max-width:150px" /> <span class="ref">até</span> <input type="date" id="gd2" style="max-width:150px" /> <button class="btn sm" onclick="renderGargalo()">Aplicar</button> <span class="ref" style="font-size:12px">janela até 3 meses</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px">
+        <div class="stat"><div class="k">Período</div><div class="v" id="mgPeriodo" style="font-size:17px">Últimos 7 dias</div></div>
+        <div class="stat"><div class="k">Pedidos no período</div><div class="v" id="mgPedidos">—</div></div>
+        <div class="stat"><div class="k">Maior gargalo</div><div class="v warn" id="mgGargalo">—</div></div>
+      </div>
+      <div style="padding:0 18px 22px"><div style="position:relative;height:300px"><canvas id="gargCanvas" role="img" aria-label="Gráfico de barras do tempo médio por etapa"></canvas></div></div>
+    </div>
   </section>
 
   <section class="view" id="v-admin">
@@ -345,6 +362,26 @@
   </section>
 </div>
 
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,20,.55);z-index:100;align-items:center;justify-content:center;padding:20px">
+  <div class="card" style="max-width:600px;width:100%;max-height:92vh;overflow:auto">
+    <div class="head"><div><h2>Editar pedido</h2><div class="sub" id="editCod"></div></div><button class="btn ghost" onclick="fecharEditar()">Fechar</button></div>
+    <div class="form">
+      <div class="field full"><label>Cliente</label><input type="text" id="e_cliente" /></div>
+      <div class="field"><label>Código (do código de barras)</label><input type="text" id="e_codigo" /></div>
+      <div class="field"><label>Nº do pedido</label><input type="text" id="e_numero" /></div>
+      <div class="field"><label>Material</label><input type="text" id="e_material" /></div>
+      <div class="field"><label>Qtd. material</label><input type="text" id="e_qtd_material" /></div>
+      <div class="field"><label>Ref. do molde</label><input type="text" id="e_ref_molde" /></div>
+      <div class="field"><label>Quantidade</label><input type="text" id="e_quantidade" /></div>
+      <div class="field"><label>Cores</label><input type="text" id="e_cores" /></div>
+      <div class="field"><label>Largura da bobina</label><input type="text" id="e_largura_bobina" /></div>
+      <div class="field"><label>Grade</label><input type="text" id="e_grade" /></div>
+      <div class="field"><label>Prazo</label><input type="date" id="e_prazo" /></div>
+      <div class="field full"><label>Observação</label><textarea id="e_obs"></textarea></div>
+      <div class="field full row-inline" style="justify-content:flex-end"><button class="btn ghost" onclick="fecharEditar()">Cancelar</button><button class="btn primary" id="btnSalvarEd" onclick="salvarEdicao()">Salvar alterações</button></div>
+    </div>
+  </div>
+</div>
 <button class="themebtn" id="themeBtn" title="Aparência" aria-label="Aparência">◐</button>
 <div class="themepanel" id="themePanel">
   <h4>Tema</h4>
@@ -466,7 +503,7 @@ async function loadAll(){
   try{
     const [r1,r2]=await Promise.all([
       sb.from('pedidos').select('*').order('created_at',{ascending:true}),
-      sb.from('eventos').select('*').order('ts',{ascending:false}).limit(200)
+      sb.from('eventos').select('*').order('ts',{ascending:false}).limit(1500)
     ]);
     if(r1.error)throw r1.error; if(r2.error)throw r2.error;
     PEDIDOS=r1.data||[]; EVENTOS=r2.data||[]; setConn(true); renderAll();
@@ -501,6 +538,21 @@ async function excluirPedido(id){
   const r=await rpc('excluir_pedido',{p_token:currentUser.token,p_id:id});
   if(!r.ok){alert('Erro: '+(r.msg||'não autorizado'));return;} await loadAll();
 }
+let editId=null;
+const E_CAMPOS=['cliente','codigo','numero','material','qtd_material','ref_molde','quantidade','cores','largura_bobina','grade','obs','prazo'];
+function abrirEditar(id){const p=pedById(id);if(!p)return;editId=id;
+  document.getElementById('editCod').textContent='Código atual: '+p.codigo;
+  E_CAMPOS.forEach(f=>{const el=document.getElementById('e_'+f);if(el)el.value=p[f]||'';});
+  document.getElementById('editModal').style.display='flex';}
+function fecharEditar(){document.getElementById('editModal').style.display='none';editId=null;}
+async function salvarEdicao(){
+  if(!editId)return;const btn=document.getElementById('btnSalvarEd');btn.disabled=true;
+  const campos={};E_CAMPOS.forEach(f=>{const el=document.getElementById('e_'+f);if(el)campos[f]=el.value.trim();});
+  const r=await rpc('editar_pedido',{p_token:currentUser.token,p_id:editId,p_campos:campos});
+  btn.disabled=false;
+  if(!r.ok){alert('Erro: '+(r.msg||'não autorizado'));return;}
+  fecharEditar(); await loadAll(); if(isGerente())await loadClientes();
+}
 
 /* ---------- helpers ---------- */
 function fmtPrazo(d){if(!d)return '—';const a=String(d).split('-');return a[2]+'/'+a[1]+'/'+a[0];}
@@ -530,7 +582,7 @@ function renderPainel(){
     const ord=fin?'<span class="ord">✓</span>':`<span class="ord ${i<3?'hot':''}">${i+1}</span>`;
     const st=f=>p[f]?'<span class="pill sim">Sim</span>':'<span class="pill nao">Não</span>';
     const pg=p.pagamento?`<span class="pill sim tog" onclick="toggleAdminField('${p.id}','pagamento')">Pago</span>`:`<span class="pill pend tog" onclick="toggleAdminField('${p.id}','pagamento')">Pendente</span>`;
-    const del=ger?`<td><button class="btn danger sm" onclick="excluirPedido('${p.id}')" title="Apagar pedido">✕</button></td>`:(canPainel()?'<td></td>':'');
+    const del=ger?`<td style="white-space:nowrap"><button class="btn sm" onclick="abrirEditar('${p.id}')" title="Editar pedido">✎</button> <button class="btn danger sm" onclick="excluirPedido('${p.id}')" title="Apagar pedido">✕</button></td>`:(canPainel()?'<td></td>':'');
     body+=`<tr style="${fin?'opacity:.6':''}">
       <td>${ord}</td><td class="cli">${esc(p.cliente)||'—'}</td><td>${esc(p.numero)||'<span class="ref">—</span>'}</td>
       <td class="ref">${esc(p.ref)||'—'}</td><td class="prazo ${isLate(p)?'late':''}">${fmtPrazo(p.prazo)}</td>
@@ -573,9 +625,45 @@ function gargaloStats(){
   const o={};STAGES.forEach(s=>o[s]={avg:acc[s].n?acc[s].s/acc[s].n:0,n:acc[s].n});return o;
 }
 function worstGargalo(){const s=gargaloStats();let b=null;STAGES.forEach(k=>{if(s[k].n>0&&(!b||s[k].avg>b.avg))b={stage:k,avg:s[k].avg};});return b;}
-function renderGargalo(){const st=gargaloStats(),mx=Math.max(...STAGES.map(s=>st[s].avg),1),w=worstGargalo();
-  document.getElementById('gargalo').innerHTML=STAGES.map(s=>{const a=st[s],isMax=w&&w.stage===s&&a.n>0;
-    return `<div class="gbar ${isMax?'max':''}"><div class="gname"><span>${STAGE_LABEL[s]}</span><span style="font-size:12px;color:var(--muted)">${a.n} pedido(s)</span></div><div class="gtime">${a.n?fmtDur(a.avg):'—'}</div><div class="track"><div class="fill" style="width:${a.n?Math.round(a.avg/mx*100):0}%"></div></div></div>`;}).join('');
+let gargChart=null, gargPeriodo='7';
+function rangeFor(p){const now=new Date();let from;
+  if(p==='hoje')from=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  else if(p==='7')from=new Date(Date.now()-7*864e5);
+  else if(p==='30')from=new Date(Date.now()-30*864e5);
+  else{const a=(document.getElementById('gd1')||{}).value,b=(document.getElementById('gd2')||{}).value;
+    let f=a?new Date(a+'T00:00:00'):new Date(Date.now()-30*864e5),t=b?new Date(b+'T23:59:59'):now;
+    if(t-f>93*864e5)f=new Date(t.getTime()-93*864e5);return [f,t];}
+  return [from,now];}
+function gargLabel(p){return p==='hoje'?'Hoje':p==='7'?'Últimos 7 dias':p==='30'?'Últimos 30 dias':'Personalizado';}
+function renderGargalo(){
+  if(typeof Chart==='undefined')return;
+  const r=rangeFor(gargPeriodo),f0=r[0].getTime(),t0=r[1].getTime();
+  const acc={risco:{s:0,n:0},enfesto:{s:0,n:0},corte:{s:0,n:0},nota:{s:0,n:0}},byP={};
+  EVENTOS.forEach(e=>{const m=byP[e.pedido_id]=byP[e.pedido_id]||{};const t=new Date(e.ts).getTime();if(m[e.stage]==null||t<m[e.stage])m[e.stage]=t;});
+  const inR=ts=>ts>=f0&&ts<=t0;
+  PEDIDOS.forEach(p=>{const ev=byP[p.id]||{},c=new Date(p.created_at).getTime();
+    if(ev.risco&&inR(ev.risco)){acc.risco.s+=ev.risco-c;acc.risco.n++;}
+    if(ev.enfesto&&ev.risco&&inR(ev.enfesto)){acc.enfesto.s+=ev.enfesto-ev.risco;acc.enfesto.n++;}
+    if(ev.corte&&ev.enfesto&&inR(ev.corte)){acc.corte.s+=ev.corte-ev.enfesto;acc.corte.n++;}
+    if(ev.nota&&ev.corte&&inR(ev.nota)){acc.nota.s+=ev.nota-ev.corte;acc.nota.n++;}});
+  const mins=STAGES.map(s=>acc[s].n?Math.round(acc[s].s/acc[s].n/60000):0);
+  const pedPer=PEDIDOS.filter(p=>{const c=new Date(p.created_at).getTime();return c>=f0&&c<=t0;}).length;
+  const g=id=>document.getElementById(id);
+  if(g('mgPeriodo'))g('mgPeriodo').textContent=gargLabel(gargPeriodo);
+  if(g('mgPedidos'))g('mgPedidos').textContent=pedPer;
+  let top={l:'—',v:0};STAGES.forEach((s,i)=>{if(mins[i]>top.v)top={l:STAGE_LABEL[s],v:mins[i]};});
+  if(g('mgGargalo'))g('mgGargalo').textContent=top.v?(top.l+' · '+fmtDur(top.v*60000)):'sem dados';
+  const cv=g('gargCanvas'); if(!cv)return; if(!gargChart && !cv.offsetParent)return;
+  const COLORS=[STAGE_COLOR.risco,STAGE_COLOR.enfesto,STAGE_COLOR.corte,STAGE_COLOR.nota];
+  if(!gargChart){
+    Chart.register(ChartDataLabels);
+    gargChart=new Chart(cv,{type:'bar',data:{labels:STAGES.map(s=>STAGE_LABEL[s]),datasets:[{data:mins,backgroundColor:COLORS,borderRadius:8,maxBarThickness:72}]},
+      options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtDur(c.raw*60000)}},
+          datalabels:{anchor:'end',align:'top',formatter:v=>v?fmtDur(v*60000):'—',color:c=>COLORS[c.dataIndex],font:{weight:'600',size:13}}},
+        scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtDur(v*60000),color:'#8a93a3'},grid:{color:'rgba(130,130,130,.14)'}},x:{ticks:{color:'#8a93a3',font:{size:13}},grid:{display:false}}}}});
+    requestAnimationFrame(function(){if(gargChart)gargChart.resize();});
+  }else{gargChart.data.datasets[0].data=mins;gargChart.update();gargChart.resize();}
 }
 function renderPrintSelect(){const sel=document.getElementById('printSelect');if(!sel)return;const cur=sel.value;
   const abertos=openPedidos().slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
@@ -631,7 +719,7 @@ function renderUsers(){
   let body='';
   USUARIOS.forEach(u=>{
     const isGer=u.papel==='gerente';
-    const stSel=`<select id="sel_${u.id}" style="max-width:150px"><option value="risco">Risco</option><option value="enfesto">Enfesto</option><option value="corte">Corte</option></select>`;
+    const stSel=`<select id="sel_${u.id}" style="max-width:150px"><option value="risco">Risco</option><option value="enfesto">Enfesto</option><option value="corte">Corte</option><option value="nota">Nota</option></select>`;
     let acoes;
     if(isGer){acoes='<span style="color:var(--muted)">—</span>';}
     else{
@@ -659,6 +747,7 @@ function renderAdmin(){
 }
 document.getElementById('reloadUsers').addEventListener('click',loadUsers);
 document.getElementById('cliSearch').addEventListener('input',renderClientesPanel);
+document.getElementById('gchips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;gargPeriodo=b.dataset.p;document.querySelectorAll('.gchip').forEach(x=>x.classList.toggle('on',x===b));document.getElementById('gCustom').style.display=(gargPeriodo==='custom')?'flex':'none';renderGargalo();});
 function statusPedido(p){if(isFinalizado(p))return '<span class="pill sim">Concluído</span>';const e=etapaOf(p);return '<span class="pill pend">'+(e==='pronto'?'Pronto':'Em '+STAGE_LABEL[e])+'</span>';}
 function renderClientesPanel(){
   const el=document.getElementById('clientesPanel'); if(!el)return;
@@ -666,8 +755,8 @@ function renderClientesPanel(){
   const cards=CLIENTES.map(c=>{
     const peds=PEDIDOS.filter(p=>p.cliente_id===c.id).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
     if(q){const hit=c.nome.toLowerCase().includes(q)||((c.cpf_cnpj||'').toLowerCase().includes(q))||peds.some(p=>(p.codigo||'').toLowerCase().includes(q)||(p.ref_molde||'').toLowerCase().includes(q)||(p.material||'').toLowerCase().includes(q)||(p.numero||'').toLowerCase().includes(q));if(!hit)return '';}
-    const rows=peds.map(p=>'<tr><td class="code">'+esc(p.codigo)+'</td><td>'+(esc(p.numero)||'—')+'</td><td class="ref">'+(esc(p.ref_molde||p.material)||'—')+'</td><td>'+statusPedido(p)+'</td><td class="ref">'+new Date(p.created_at).toLocaleDateString('pt-BR')+'</td></tr>').join('')||'<tr><td colspan="5" class="ref" style="padding:8px 12px">sem pedidos</td></tr>';
-    return '<div class="clientebox"><div class="clientehead"><div><span class="cnome">'+esc(c.nome)+'</span> <span class="ref">'+(esc(c.cpf_cnpj)||'')+'</span></div><span class="ref">'+peds.length+' pedido(s)</span></div><div class="ref" style="font-size:12px;margin-bottom:8px">'+(esc(c.telefone)||'')+(c.endereco?(' · '+esc(c.endereco)):'')+'</div><table><thead><tr><th>Código</th><th>Nº</th><th>Ref/Material</th><th>Status</th><th>Data</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    const rows=peds.map(p=>'<tr><td class="code">'+esc(p.codigo)+'</td><td>'+(esc(p.numero)||'—')+'</td><td class="ref">'+(esc(p.ref_molde||p.material)||'—')+'</td><td>'+statusPedido(p)+'</td><td class="ref">'+new Date(p.created_at).toLocaleDateString('pt-BR')+'</td><td><button class="btn sm" onclick="abrirEditar(\''+p.id+'\')" title="Editar">✎</button></td></tr>').join('')||'<tr><td colspan="6" class="ref" style="padding:8px 12px">sem pedidos</td></tr>';
+    return '<div class="clientebox"><div class="clientehead"><div><span class="cnome">'+esc(c.nome)+'</span> <span class="ref">'+(esc(c.cpf_cnpj)||'')+'</span></div><span class="ref">'+peds.length+' pedido(s)</span></div><div class="ref" style="font-size:12px;margin-bottom:8px">'+(esc(c.telefone)||'')+(c.endereco?(' · '+esc(c.endereco)):'')+'</div><table><thead><tr><th>Código</th><th>Nº</th><th>Ref/Material</th><th>Status</th><th>Data</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }).filter(Boolean).join('');
   el.innerHTML=cards||'<div class="empty">Nenhum cliente'+(q?(' pra "'+esc(q)+'"'):' ainda')+'.</div>';
 }
@@ -746,6 +835,7 @@ function go(v){
   if(v==='admin'&&isGerente()){loadUsers();loadClientes().then(renderClientesPanel);}
   if(v==='impressao')drawLabel();
   if(v==='lancar')setNextNumero();
+  if(v==='gargalo')setTimeout(renderGargalo,60);
 }
 document.getElementById('tabs').addEventListener('click',e=>{if(e.target.dataset.v)go(e.target.dataset.v);});
 document.getElementById('toggleDone').addEventListener('click',e=>{showDone=!showDone;e.target.textContent=showDone?'Ocultar concluídos':'Mostrar concluídos';renderPainel();});
