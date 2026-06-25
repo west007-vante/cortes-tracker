@@ -1,0 +1,17 @@
+{
+  "name": "gfcortes-whatsapp-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bot que avisa o cliente no WhatsApp quando a Nota do pedido é bipada (GF Cortes).",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "@whiskeysockets/baileys": "^6.7.8",
+    "dotenv": "^16.4.5",
+    "qrcode-terminal": "^0.12.0",
+    "pino": "^9.4.0"
+  }
+}

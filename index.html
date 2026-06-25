@@ -360,6 +360,10 @@
       <div class="head"><div><h2>Clientes &amp; pedidos</h2><div class="sub">Todos os clientes e o histórico (inclui concluídos) — busca por nome, código ou ref</div></div><input type="text" id="cliSearch" placeholder="Buscar cliente / código / ref..." style="max-width:300px" /></div>
       <div id="clientesPanel" style="padding:12px 0"></div>
     </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="head"><div><h2>Notificações WhatsApp</h2><div class="sub">Avisos enviados ao cliente quando a Nota é bipada</div></div><button class="btn ghost" id="reloadNotif">Atualizar</button></div>
+      <div style="overflow-x:auto"><table id="notifTable"></table></div>
+    </div>
     <div class="card">
       <div class="head"><div><h2>Cancelar bipe</h2><div class="sub">Desfaz uma etapa bipada por engano (e as seguintes)</div></div></div>
       <div style="overflow-x:auto"><table id="adminTable"></table></div>
@@ -749,6 +753,17 @@ function renderAdmin(){
 }
 document.getElementById('reloadUsers').addEventListener('click',loadUsers);
 document.getElementById('cliSearch').addEventListener('input',renderClientesPanel);
+document.getElementById('reloadNotif').addEventListener('click',loadNotificacoes);
+async function loadNotificacoes(){
+  const t=document.getElementById('notifTable'); if(!t)return;
+  const r=await rpc('gerente_notificacoes',{p_token:currentUser.token});
+  if(!r.ok){t.innerHTML='<tbody><tr><td><div class="empty">'+esc(r.msg||'')+'</div></td></tr></tbody>';return;}
+  const ns=r.notificacoes||[];
+  if(!ns.length){t.innerHTML='<tbody><tr><td><div class="empty">Nenhuma notificação ainda — aparecem aqui quando a Nota é bipada.</div></td></tr></tbody>';return;}
+  const pill=s=>s==='enviado'?'<span class="pill sim">enviado</span>':s==='pendente'?'<span class="pill pend">pendente</span>':s==='sem_telefone'?'<span class="pill nao">sem telefone</span>':'<span class="pill nao">erro</span>';
+  let body='';ns.forEach(n=>{body+='<tr><td class="cli">'+esc(n.cliente)+'</td><td class="ref">'+(esc(n.telefone)||'—')+'</td><td>'+pill(n.status)+'</td><td class="ref">'+(n.erro?esc(n.erro):'')+'</td><td class="ref">'+new Date(n.created_at).toLocaleString('pt-BR')+'</td></tr>';});
+  t.innerHTML='<thead><tr><th>Cliente</th><th>Telefone</th><th>Status</th><th>Detalhe</th><th>Quando</th></tr></thead><tbody>'+body+'</tbody>';
+}
 document.getElementById('gchips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;gargPeriodo=b.dataset.p;document.querySelectorAll('.gchip').forEach(x=>x.classList.toggle('on',x===b));document.getElementById('gCustom').style.display=(gargPeriodo==='custom')?'flex':'none';renderGargalo();});
 function statusPedido(p){if(isFinalizado(p))return '<span class="pill sim">Concluído</span>';const e=etapaOf(p);return '<span class="pill pend">'+(e==='pronto'?'Pronto':'Em '+STAGE_LABEL[e])+'</span>';}
 function renderClientesPanel(){
@@ -834,7 +849,7 @@ function go(v){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='v-'+v));
   if(v==='estacoes')renderBip();
-  if(v==='admin'&&isGerente()){loadUsers();loadClientes().then(renderClientesPanel);}
+  if(v==='admin'&&isGerente()){loadUsers();loadClientes().then(renderClientesPanel);loadNotificacoes();}
   if(v==='impressao')drawLabel();
   if(v==='lancar')setNextNumero();
   if(v==='gargalo')setTimeout(renderGargalo,60);
