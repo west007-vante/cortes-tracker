@@ -1,6 +1,9 @@
 // GF Cortes — bot de aviso no WhatsApp (Baileys).
 // Quando a Nota é bipada no sistema, o gatilho do banco cria uma notificação 'pendente'.
 // Este bot, rodando no computador da GF Cortes, lê as pendentes e envia pelo WhatsApp.
+//
+// Anti-duplicação: cada notificação é "reservada" (status pendente -> enviando) de forma
+// atômica antes do envio. Assim, nem ticks concorrentes nem um crash reenviam a mesma mensagem.
 require('dotenv').config();
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { createClient } = require('@supabase/supabase-js');
@@ -13,7 +16,7 @@ if (!SB_SECRET) { console.error('\n>> Faltou o SB_SECRET no arquivo .env (a chav
 
 const sb = createClient(SB_URL, SB_SECRET, { auth: { persistSession: false } });
 const log = pino({ level: 'silent' });
-let sock = null, conectado = false;
+let sock = null, conectado = false, processando = false, reconectando = false;
 
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_gfcortes');
@@ -21,13 +24,16 @@ async function start() {
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', (u) => {
     const { connection, lastDisconnect, qr } = u;
-    if (qr) { console.log('\n>> Escaneie o QR abaixo com o WhatsApp da GF Cortes (número 16 97400-2692):\n'); qrcode.generate(qr, { small: true }); }
-    if (connection === 'open') { conectado = true; console.log('\nWhatsApp conectado. O bot está rodando — pode deixar essa janela aberta.\n'); }
+    if (qr) { console.log('\n>> Escaneie o QR abaixo com o WhatsApp da GF Cortes (numero 16 97400-2692):\n'); qrcode.generate(qr, { small: true }); }
+    if (connection === 'open') { conectado = true; console.log('\nWhatsApp conectado. O bot esta rodando - pode deixar essa janela aberta.\n'); }
     if (connection === 'close') {
       conectado = false;
       const code = lastDisconnect && lastDisconnect.error && lastDisconnect.error.output && lastDisconnect.error.output.statusCode;
-      if (code === DisconnectReason.loggedOut) { console.log('Sessão encerrada. Apague a pasta "auth_gfcortes" e rode de novo pra reconectar.'); }
-      else { console.log('Conexão caiu, reconectando...'); start(); }
+      if (code === DisconnectReason.loggedOut) { console.log('Sessao encerrada. Apague a pasta "auth_gfcortes" e rode de novo pra reconectar.'); return; }
+      if (reconectando) return;
+      reconectando = true;
+      console.log('Conexao caiu, reconectando em 5s...');
+      setTimeout(() => { reconectando = false; start().catch(e => console.error('reconexao falhou:', e && e.message)); }, 5000);
     }
   });
 }
@@ -40,35 +46,43 @@ function numeroBR(raw) {
 }
 
 async function processarPendentes() {
-  if (!conectado || !sock) return;
-  let data, error;
-  try { ({ data, error } = await sb.from('notificacoes').select('*').eq('status', 'pendente').order('created_at').limit(10)); }
-  catch (e) { console.error('Erro lendo o banco:', e.message); return; }
-  if (error) { console.error('Erro lendo o banco:', error.message); return; }
-  for (const n of (data || [])) {
-    const num = numeroBR(n.telefone);
-    if (!num) { await marcar(n, 'erro', 'Cliente sem telefone'); continue; }
-    try {
-      const res = await sock.onWhatsApp(num);
-      if (!(res && res[0] && res[0].exists)) {
-        await marcar(n, 'erro', 'Esse número não tem WhatsApp (' + num + ')');
-        continue;
+  if (processando || !conectado || !sock) return;
+  processando = true;
+  try {
+    const { data, error } = await sb.from('notificacoes').select('*').eq('status', 'pendente').order('created_at').limit(10);
+    if (error) { console.error('Erro lendo o banco:', error.message); return; }
+    for (const n of (data || [])) {
+      // RESERVA atomica: so quem conseguir mudar pendente->enviando processa esta linha.
+      const { data: claimed, error: cErr } = await sb.from('notificacoes')
+        .update({ status: 'enviando' }).eq('id', n.id).eq('status', 'pendente').select();
+      if (cErr) { console.error('claim erro:', cErr.message); continue; }
+      if (!claimed || !claimed.length) continue; // outra rodada/instancia ja pegou
+
+      const num = numeroBR(n.telefone);
+      if (!num) { await sb.from('notificacoes').update({ status: 'erro', erro: 'Cliente sem telefone' }).eq('id', n.id); continue; }
+      try {
+        const res = await sock.onWhatsApp(num);
+        if (!(res && res[0] && res[0].exists)) {
+          await sb.from('notificacoes').update({ status: 'erro', erro: 'Esse numero nao tem WhatsApp (' + num + ')' }).eq('id', n.id);
+          console.log(n.cliente, '-> erro (numero sem WhatsApp)');
+          continue;
+        }
+        await sock.sendMessage(res[0].jid, { text: n.mensagem });
+        await sb.from('notificacoes').update({ status: 'enviado', sent_at: new Date().toISOString(), erro: null }).eq('id', n.id);
+        console.log('Enviado para', n.cliente, '(' + num + ')');
+      } catch (e) {
+        // Erro depois da reserva: marca 'erro' (NAO volta pra pendente) pra nunca reenviar/duplicar.
+        await sb.from('notificacoes').update({ status: 'erro', erro: String(e && e.message || e), tentativas: (n.tentativas || 0) + 1 }).eq('id', n.id);
+        console.error('Falha ao enviar para', n.cliente, '-', e && e.message);
       }
-      await sock.sendMessage(res[0].jid, { text: n.mensagem });
-      await sb.from('notificacoes').update({ status: 'enviado', sent_at: new Date().toISOString(), erro: null }).eq('id', n.id);
-      console.log('Enviado para', n.cliente, '(' + num + ')');
-    } catch (e) {
-      const t = (n.tentativas || 0) + 1;
-      await sb.from('notificacoes').update({ status: t >= 4 ? 'erro' : 'pendente', erro: String(e && e.message || e), tentativas: t }).eq('id', n.id);
-      console.error('Falha ao enviar para', n.cliente, '-', e && e.message);
     }
+  } catch (e) {
+    console.error('Erro no processamento:', e && e.message);
+  } finally {
+    processando = false;
   }
 }
-async function marcar(n, status, erro) {
-  await sb.from('notificacoes').update({ status, erro, tentativas: (n.tentativas || 0) + 1 }).eq('id', n.id);
-  console.log(n.cliente, '->', status, '(' + erro + ')');
-}
 
-start();
+start().catch(e => console.error('start falhou:', e && e.message));
 setInterval(processarPendentes, 8000);
-console.log('Bot GF Cortes iniciando... aguarde o QR (primeira vez) ou a conexão.');
+console.log('Bot GF Cortes iniciando... aguarde o QR (primeira vez) ou a conexao.');

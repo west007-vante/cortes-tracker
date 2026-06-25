@@ -760,7 +760,7 @@ async function loadNotificacoes(){
   if(!r.ok){t.innerHTML='<tbody><tr><td><div class="empty">'+esc(r.msg||'')+'</div></td></tr></tbody>';return;}
   const ns=r.notificacoes||[];
   if(!ns.length){t.innerHTML='<tbody><tr><td><div class="empty">Nenhuma notificação ainda — aparecem aqui quando a Nota é bipada.</div></td></tr></tbody>';return;}
-  const pill=s=>s==='enviado'?'<span class="pill sim">enviado</span>':s==='pendente'?'<span class="pill pend">pendente</span>':s==='sem_telefone'?'<span class="pill nao">sem telefone</span>':'<span class="pill nao">erro</span>';
+  const pill=s=>s==='enviado'?'<span class="pill sim">enviado</span>':s==='pendente'?'<span class="pill pend">pendente</span>':s==='enviando'?'<span class="pill pend">enviando…</span>':s==='sem_telefone'?'<span class="pill nao">sem telefone</span>':'<span class="pill nao">erro</span>';
   let body='';ns.forEach(n=>{body+='<tr><td class="cli">'+esc(n.cliente)+'</td><td class="ref">'+(esc(n.telefone)||'—')+'</td><td>'+pill(n.status)+'</td><td class="ref">'+(n.erro?esc(n.erro):'')+'</td><td class="ref">'+new Date(n.created_at).toLocaleString('pt-BR')+'</td></tr>';});
   t.innerHTML='<thead><tr><th>Cliente</th><th>Telefone</th><th>Status</th><th>Detalhe</th><th>Quando</th></tr></thead><tbody>'+body+'</tbody>';
 }
