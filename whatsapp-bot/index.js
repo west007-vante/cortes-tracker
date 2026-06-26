@@ -23,12 +23,12 @@ async function start() {
   let version;
   try { version = (await fetchLatestBaileysVersion()).version; console.log('  Usando versao do WhatsApp:', (version || []).join('.')); }
   catch (e) { console.log('  (nao consegui buscar a versao atual do WhatsApp - pode ser bloqueio de rede/firewall):', e && e.message); }
-  sock = makeWASocket({ version, auth: state, logger: log, browser: ['GF Cortes', 'Chrome', '1.0'] });
+  sock = makeWASocket({ version, auth: state, logger: log, markOnlineOnConnect: false, syncFullHistory: false, browser: ['GF Cortes', 'Chrome', '1.0'] });
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', (u) => {
     const { connection, lastDisconnect, qr } = u;
     if (qr) { console.log('\n>> Escaneie o QR abaixo com o WhatsApp da GF Cortes (numero 16 97400-2692):\n'); qrcode.generate(qr, { small: true }); }
-    if (connection === 'open') { conectado = true; console.log('\nWhatsApp conectado. O bot esta rodando - pode deixar essa janela aberta.\n'); }
+    if (connection === 'open') { conectado = true; console.log('\nWhatsApp conectado. O bot esta rodando - DEIXE esta janela aberta.\n'); recuperarPendentes(); }
     if (connection === 'close') {
       conectado = false;
       const err = lastDisconnect && lastDisconnect.error;
@@ -57,6 +57,7 @@ async function processarPendentes() {
     const { data, error } = await sb.from('notificacoes').select('*').eq('status', 'pendente').order('created_at').limit(10);
     if (error) { console.error('Erro lendo o banco:', error.message); return; }
     for (const n of (data || [])) {
+      if (!conectado) break; // conexao caiu no meio do lote; o resto continua pendente
       // RESERVA atomica: so quem conseguir mudar pendente->enviando processa esta linha.
       const { data: claimed, error: cErr } = await sb.from('notificacoes')
         .update({ status: 'enviando' }).eq('id', n.id).eq('status', 'pendente').select();
@@ -76,9 +77,13 @@ async function processarPendentes() {
         await sb.from('notificacoes').update({ status: 'enviado', sent_at: new Date().toISOString(), erro: null }).eq('id', n.id);
         console.log('Enviado para', n.cliente, '(' + num + ')');
       } catch (e) {
-        // Erro depois da reserva: marca 'erro' (NAO volta pra pendente) pra nunca reenviar/duplicar.
-        await sb.from('notificacoes').update({ status: 'erro', erro: String(e && e.message || e), tentativas: (n.tentativas || 0) + 1 }).eq('id', n.id);
-        console.error('Falha ao enviar para', n.cliente, '-', e && e.message);
+        const msg = String(e && e.message || e);
+        const ehConexao = !conectado || /clos|connection|timed|timeout|lost|socket/i.test(msg);
+        // Erro de CONEXAO = a mensagem NAO saiu -> volta pra pendente (reenvia depois, sem duplicar).
+        // Outro erro = marca 'erro' (nao arrisca duplicar).
+        await sb.from('notificacoes').update({ status: ehConexao ? 'pendente' : 'erro', erro: msg, tentativas: (n.tentativas || 0) + 1 }).eq('id', n.id);
+        if (ehConexao) { console.log('Conexao caiu no envio (vai tentar de novo):', n.cliente); break; }
+        console.error('Falha ao enviar para', n.cliente, '-', msg);
       }
     }
   } catch (e) {
@@ -86,6 +91,14 @@ async function processarPendentes() {
   } finally {
     processando = false;
   }
+}
+
+// Ao (re)conectar, recupera mensagens que ficaram presas por queda de conexao - elas nao chegaram a sair.
+async function recuperarPendentes() {
+  try {
+    await sb.from('notificacoes').update({ status: 'pendente', erro: null }).eq('status', 'enviando');
+    await sb.from('notificacoes').update({ status: 'pendente', erro: null }).eq('status', 'erro').ilike('erro', '%onnection%');
+  } catch (e) { console.error('recuperar:', e && e.message); }
 }
 
 start().catch(e => console.error('start falhou:', e && e.message));
