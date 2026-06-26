@@ -16,9 +16,10 @@ if (!SB_SECRET) { console.error('\n>> Faltou o SB_SECRET no arquivo .env (a chav
 
 const sb = createClient(SB_URL, SB_SECRET, { auth: { persistSession: false } });
 const log = pino({ level: 'silent' });
-let sock = null, conectado = false, processando = false, reconectando = false;
+let sock = null, conectado = false, processando = false, reconectando = false, conflitos = 0;
 
 async function start() {
+  if (sock) { try { sock.ev.removeAllListeners(); if (sock.ws) sock.ws.close(); } catch (e) {} sock = null; }
   const { state, saveCreds } = await useMultiFileAuthState('auth_gfcortes');
   let version;
   try { version = (await fetchLatestBaileysVersion()).version; console.log('  Usando versao do WhatsApp:', (version || []).join('.')); }
@@ -28,17 +29,32 @@ async function start() {
   sock.ev.on('connection.update', (u) => {
     const { connection, lastDisconnect, qr } = u;
     if (qr) { console.log('\n>> Escaneie o QR abaixo com o WhatsApp da GF Cortes (numero 16 97400-2692):\n'); qrcode.generate(qr, { small: true }); }
-    if (connection === 'open') { conectado = true; console.log('\nWhatsApp conectado. O bot esta rodando - DEIXE esta janela aberta.\n'); recuperarPendentes(); }
+    if (connection === 'open') { conectado = true; conflitos = 0; console.log('\nWhatsApp conectado. O bot esta rodando - DEIXE esta janela aberta.\n'); recuperarPendentes(); }
     if (connection === 'close') {
       conectado = false;
       const err = lastDisconnect && lastDisconnect.error;
       const code = err && err.output && err.output.statusCode;
-      console.log('  > Conexao fechou. Codigo:', code, '| Detalhe:', (err && err.message) || String(err || ''));
-      if (code === DisconnectReason.loggedOut) { console.log('Sessao encerrada. Apague a pasta "auth_gfcortes" e rode de novo pra reconectar.'); return; }
+      const detalhe = (err && err.message) || String(err || '');
+      console.log('  > Conexao fechou. Codigo:', code, '| Detalhe:', detalhe);
+      const ehConflito = /conflict|replaced/i.test(detalhe);
+      if (code === DisconnectReason.loggedOut && !ehConflito) {
+        console.log('  Sessao deslogada no celular. Apague a pasta "auth_gfcortes" e rode de novo.');
+        return;
+      }
+      if (ehConflito) {
+        conflitos++;
+        if (conflitos >= 6) {
+          console.log('\n  [!] CONFLITO repetido: o WhatsApp 16 97400-2692 esta conectado em OUTRO lugar ao mesmo tempo.');
+          console.log('      1) No celular: Aparelhos conectados  ->  DESCONECTAR TODOS.');
+          console.log('      2) Feche qualquer WhatsApp Web e qualquer OUTRA janela preta deste bot.');
+          console.log('      3) Apague a pasta "auth_gfcortes" e rode SO esta janela. Parando agora.\n');
+          return;
+        }
+      }
       if (reconectando) return;
       reconectando = true;
-      console.log('  Reconectando em 5s...');
-      setTimeout(() => { reconectando = false; start().catch(e => console.error('reconexao falhou:', e && e.message)); }, 5000);
+      console.log('  Reconectando em', ehConflito ? '8s...' : '5s...');
+      setTimeout(() => { reconectando = false; start().catch(e => console.error('reconexao falhou:', e && e.message)); }, ehConflito ? 8000 : 5000);
     }
   });
 }
@@ -101,6 +117,22 @@ async function recuperarPendentes() {
   } catch (e) { console.error('recuperar:', e && e.message); }
 }
 
-start().catch(e => console.error('start falhou:', e && e.message));
-setInterval(processarPendentes, 8000);
-console.log('Bot GF Cortes iniciando... aguarde o QR (primeira vez) ou a conexao.');
+// Trava de instancia unica: impede DUAS janelas do bot rodando juntas
+// (duas sessoes do mesmo WhatsApp = erro "conflict" e ping-pong de queda).
+const net = require('net');
+const trava = net.createServer();
+trava.once('error', (e) => {
+  if (e && e.code === 'EADDRINUSE') {
+    console.error('\n  [!] O bot JA esta aberto em OUTRA janela preta. So pode existir UMA.');
+    console.error('      Feche ESTA janela e use a que ja esta rodando');
+    console.error('      (ou feche TODAS as janelas pretas e abra de novo so uma).\n');
+  } else {
+    console.error('  Erro na trava de instancia:', e && e.message);
+  }
+  process.exit(1);
+});
+trava.listen(54321, '127.0.0.1', () => {
+  start().catch(e => console.error('start falhou:', e && e.message));
+  setInterval(processarPendentes, 8000);
+  console.log('Bot GF Cortes iniciando... aguarde o QR (primeira vez) ou a conexao.');
+});
