@@ -5,7 +5,7 @@
 // Anti-duplicação: cada notificação é "reservada" (status pendente -> enviando) de forma
 // atômica antes do envio. Assim, nem ticks concorrentes nem um crash reenviam a mesma mensagem.
 require('dotenv').config();
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { createClient } = require('@supabase/supabase-js');
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
@@ -20,7 +20,10 @@ let sock = null, conectado = false, processando = false, reconectando = false;
 
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_gfcortes');
-  sock = makeWASocket({ auth: state, logger: log, browser: ['GF Cortes', 'Chrome', '1.0'] });
+  let version;
+  try { version = (await fetchLatestBaileysVersion()).version; console.log('  Usando versao do WhatsApp:', (version || []).join('.')); }
+  catch (e) { console.log('  (nao consegui buscar a versao atual do WhatsApp - pode ser bloqueio de rede/firewall):', e && e.message); }
+  sock = makeWASocket({ version, auth: state, logger: log, browser: ['GF Cortes', 'Chrome', '1.0'] });
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', (u) => {
     const { connection, lastDisconnect, qr } = u;
@@ -28,11 +31,13 @@ async function start() {
     if (connection === 'open') { conectado = true; console.log('\nWhatsApp conectado. O bot esta rodando - pode deixar essa janela aberta.\n'); }
     if (connection === 'close') {
       conectado = false;
-      const code = lastDisconnect && lastDisconnect.error && lastDisconnect.error.output && lastDisconnect.error.output.statusCode;
+      const err = lastDisconnect && lastDisconnect.error;
+      const code = err && err.output && err.output.statusCode;
+      console.log('  > Conexao fechou. Codigo:', code, '| Detalhe:', (err && err.message) || String(err || ''));
       if (code === DisconnectReason.loggedOut) { console.log('Sessao encerrada. Apague a pasta "auth_gfcortes" e rode de novo pra reconectar.'); return; }
       if (reconectando) return;
       reconectando = true;
-      console.log('Conexao caiu, reconectando em 5s...');
+      console.log('  Reconectando em 5s...');
       setTimeout(() => { reconectando = false; start().catch(e => console.error('reconexao falhou:', e && e.message)); }, 5000);
     }
   });
