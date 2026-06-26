@@ -12,9 +12,28 @@ if errorlevel 1 (
   exit /b
 )
 
+where git >nul 2>nul
+if errorlevel 1 (
+  echo.
+  echo  [!] Git nao encontrado - e o bot precisa dele so pra baixar uma peca na 1a instalacao.
+  echo      Instale o Git em https://git-scm.com/download/win  ^(clique Next/Avancar ate o fim^),
+  echo      REINICIE o PC e rode este atalho de novo.
+  echo.
+  pause
+  exit /b
+)
+
 if not exist node_modules (
   echo  Instalando dependencias pela primeira vez... pode demorar 1-2 minutos.
   call npm install
+  if errorlevel 1 (
+    echo.
+    echo  [!] A instalacao FALHOU. Veja a mensagem de erro acima.
+    echo      Se falar em "git", instale o Git em https://git-scm.com/download/win , reinicie e tente de novo.
+    echo.
+    pause
+    exit /b
+  )
   echo.
 )
 
