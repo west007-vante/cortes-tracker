@@ -360,16 +360,25 @@
   </section>
 
   <section class="view" id="v-producao">
-    <div class="stats" id="prodStats"></div>
     <div class="card" style="margin-bottom:22px">
       <div class="head">
-        <div><h2>Produção por dia</h2><div class="sub">Pedidos finalizados (Nota bipada) a cada dia</div></div>
-        <div class="gchips" id="prodChips"><button class="gchip" data-p="7">7 dias</button><button class="gchip on" data-p="14">14 dias</button><button class="gchip" data-p="30">30 dias</button></div>
+        <div><h2>Produção — peças cortadas</h2><div class="sub">Quantas peças saíram e quais clientes mais cortaram</div></div>
+        <div class="row-inline" style="gap:8px;flex-wrap:wrap">
+          <div class="gchips" id="prodChips"><button class="gchip on" data-p="dia">Dia</button><button class="gchip" data-p="semana">Semana</button><button class="gchip" data-p="geral">Geral</button></div>
+          <input type="date" id="prodData" style="max-width:158px" title="Dia de referência" />
+        </div>
       </div>
-      <div style="padding:0 18px 22px"><div style="position:relative;height:280px"><canvas id="prodCanvas" role="img" aria-label="Produção por dia"></canvas></div></div>
+      <div class="stats" id="prodStats" style="padding:18px"></div>
     </div>
     <div class="card" style="margin-bottom:22px">
-      <div class="head"><div><h2>Por cliente</h2><div class="sub">Pedidos no período, total e média por dia ativo</div></div><input type="text" id="prodBuscaCli" placeholder="🔎 cliente" style="max-width:220px" /></div>
+      <div class="head"><div><h2>Peças por cliente</h2><div class="sub" id="prodPieSub">Quem mais e quem menos cortou</div></div></div>
+      <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:22px">
+        <div style="position:relative;width:230px;height:230px;flex:0 0 auto"><canvas id="prodPie" role="img" aria-label="Gráfico de pizza de peças por cliente"></canvas></div>
+        <div style="flex:1;min-width:230px;display:flex;flex-direction:column;gap:9px" id="prodLeg"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="head"><div><h2>Detalhamento por cliente</h2><div class="sub">Ranking de peças no período</div></div><input type="text" id="prodBuscaCli" placeholder="🔎 cliente" style="max-width:220px" /></div>
       <div style="overflow-x:auto"><table id="prodCliTable"></table></div>
     </div>
     <div class="card">
@@ -535,6 +544,7 @@ function enterApp(){
   document.getElementById('appShell').style.display='block';
   document.getElementById('roleLine').textContent=PAPEL_LABEL[currentUser.papel]+' · '+currentUser.username;
   const td=document.getElementById('tlData'); if(td&&!td.value)td.value=tlHojeStr(); // registro de tempo começa em "hoje"
+  const pdt=document.getElementById('prodData'); if(pdt&&!pdt.value)pdt.value=tlHojeStr(); // produção começa em "hoje"
   const tabs=TABS_BY_ROLE[currentUser.papel]||['estacoes'];
   const nav=document.getElementById('tabs');
   nav.style.display=tabs.length>1?'flex':'none';
@@ -850,52 +860,73 @@ function renderClientesPanel(){
   el.innerHTML=cards||'<div class="empty">Nenhum cliente'+(q?(' pra "'+esc(q)+'"'):' ainda')+'.</div>';
 }
 
-/* ---------- PRODUÇÃO (item 6 — analytics; peças por unidade entram após o supabase_v6) ---------- */
-let prodChart=null, prodPeriodo='14';
-function renderProducao(){
-  const dias=parseInt(prodPeriodo,10)||14;
-  const today=new Date(); const start=new Date(today.getFullYear(),today.getMonth(),today.getDate()-(dias-1)); const startMs=start.getTime();
+/* ---------- PRODUÇÃO POR PEÇAS (item 6 — peças cortadas, pizza por cliente) ---------- */
+let prodPie=null, prodPeriodo='dia';
+const PIE_COLORS=['#2a78d6','#1baf7a','#eda100','#008300','#4a3aa7','#e34948','#e87ba4','#eb6834','#888780'];
+function prodDataStr(){const el=document.getElementById('prodData');return el&&el.value?el.value:tlHojeStr();}
+function prodRange(){
+  const sel=prodDataStr(), base=new Date(sel+'T12:00:00');
+  if(prodPeriodo==='dia'){const f=new Date(base.getFullYear(),base.getMonth(),base.getDate()).getTime();return {f0:f,t0:f+864e5-1,nDias:1,label:'Dia '+fmtPrazo(sel)};}
+  if(prodPeriodo==='semana'){const t=new Date(base.getFullYear(),base.getMonth(),base.getDate()).getTime();return {f0:t-6*864e5,t0:t+864e5-1,nDias:7,label:'Semana até '+fmtPrazo(sel)};}
+  return {f0:0,t0:Date.now()+864e5,nDias:null,label:'Geral (tudo)'};
+}
+function pecasRegistros(){
+  // só pedidos COM peças (Lei Zero: não inventa); ts = 1º bipe de Nota (ou created_at se nota sem evento)
   const notaTs={};EVENTOS.forEach(e=>{if(e.stage!=='nota')return;const t=new Date(e.ts).getTime();if(notaTs[e.pedido_id]==null||t<notaTs[e.pedido_id])notaTs[e.pedido_id]=t;});
-  const lk=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const dayList=[],labels=[],buckets={};
-  for(let i=0;i<dias;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);const k=lk(d);dayList.push(k);buckets[k]=0;labels.push(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'));}
-  let totalFin=0;
-  for(const pid in notaTs){const t=notaTs[pid];if(t>=startMs){const k=lk(new Date(t));if(k in buckets){buckets[k]++;totalFin++;}}}
-  const counts=dayList.map(k=>buckets[k]);
-  const lancPeriodo=PEDIDOS.filter(p=>new Date(p.created_at).getTime()>=startMs);
-  const cliAtivos=new Set(lancPeriodo.map(p=>p.cliente_id||p.cliente)).size;
+  const out=[];
+  PEDIDOS.forEach(p=>{const pc=parseInt(p.pecas,10);if(isNaN(pc))return;
+    const ts=notaTs[p.id]!=null?notaTs[p.id]:(p.nota?new Date(p.created_at).getTime():null);
+    if(ts==null)return;
+    out.push({pecas:pc,ts:ts,cliente:p.cliente||'—',cid:p.cliente_id||p.cliente||'?'});});
+  return out;
+}
+function renderProducao(){
+  const r=prodRange(), todos=pecasRegistros();
+  const reg=todos.filter(x=>x.ts>=r.f0&&x.ts<=r.t0);
+  const totalPecas=reg.reduce((a,b)=>a+b.pecas,0);
+  const byCli={};reg.forEach(x=>{const a=byCli[x.cid]=byCli[x.cid]||{nome:x.cliente,pecas:0,pedidos:0};a.pecas+=x.pecas;a.pedidos++;});
+  const arr=Object.keys(byCli).map(k=>byCli[k]).sort((a,b)=>b.pecas-a.pecas);
+  const hoje0=new Date(tlHojeStr()+'T00:00:00').getTime();
+  const pecasHoje=todos.filter(x=>x.ts>=hoje0&&x.ts<hoje0+864e5).reduce((a,b)=>a+b.pecas,0);
+  const pecasSemana=todos.filter(x=>x.ts>=hoje0-6*864e5&&x.ts<hoje0+864e5).reduce((a,b)=>a+b.pecas,0);
+  const mediaDia=r.nDias?Math.round(totalPecas/r.nDias):totalPecas;
+  const N=n=>Number(n).toLocaleString('pt-BR');
   const ps=document.getElementById('prodStats');
   if(ps)ps.innerHTML=
-    '<div class="stat"><div class="k">Finalizados ('+dias+'d)</div><div class="v">'+totalFin+'</div></div>'+
-    '<div class="stat"><div class="k">Média por dia</div><div class="v">'+(totalFin/dias).toFixed(1)+'</div></div>'+
-    '<div class="stat"><div class="k">Lançados ('+dias+'d)</div><div class="v">'+lancPeriodo.length+'</div></div>'+
-    '<div class="stat"><div class="k">Clientes ativos</div><div class="v">'+cliAtivos+'</div></div>';
-  const cv=document.getElementById('prodCanvas');
-  if(typeof Chart!=='undefined'&&cv&&(prodChart||cv.offsetParent)){
-    const accent=(getComputedStyle(document.body).getPropertyValue('--accent')||'#2f6bff').trim()||'#2f6bff';
-    if(!prodChart){
-      prodChart=new Chart(cv,{type:'bar',data:{labels:labels,datasets:[{data:counts,backgroundColor:accent,borderRadius:6,maxBarThickness:38}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},tooltip:{callbacks:{label:c=>c.raw+' pedido(s)'}}},
-          scales:{y:{beginAtZero:true,ticks:{precision:0,color:'#8a93a3'},grid:{color:'rgba(130,130,130,.14)'}},x:{ticks:{color:'#8a93a3',font:{size:11}},grid:{display:false}}}}});
-      requestAnimationFrame(function(){if(prodChart)prodChart.resize();});
-    } else {prodChart.data.labels=labels;prodChart.data.datasets[0].data=counts;prodChart.data.datasets[0].backgroundColor=accent;prodChart.update();prodChart.resize();}
-  }
-  renderProdCli(startMs,dias,notaTs); renderProdChurn();
+    '<div class="stat"><div class="k">Peças no período</div><div class="v">'+N(totalPecas)+'</div></div>'+
+    '<div class="stat"><div class="k">Média por dia</div><div class="v">'+(r.nDias?N(mediaDia):'—')+'</div></div>'+
+    '<div class="stat"><div class="k">Hoje · Semana</div><div class="v" style="font-size:20px">'+N(pecasHoje)+' · '+N(pecasSemana)+'</div></div>'+
+    '<div class="stat"><div class="k">Clientes no período</div><div class="v">'+arr.length+'</div></div>';
+  const sub=document.getElementById('prodPieSub'); if(sub)sub.textContent=r.label+' · '+N(totalPecas)+' peças';
+  renderProdPie(arr,totalPecas);
+  const leg=document.getElementById('prodLeg');
+  if(leg)leg.innerHTML=arr.length
+    ? arr.map((a,i)=>'<span style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px"><span style="display:flex;align-items:center;gap:8px"><span style="width:11px;height:11px;border-radius:3px;background:'+PIE_COLORS[i%PIE_COLORS.length]+'"></span>'+esc(a.nome)+'</span><span class="ref">'+N(a.pecas)+' pç · '+(totalPecas?Math.round(a.pecas/totalPecas*100):0)+'%</span></span>').join('')
+    : '<div class="ref">Sem peças registradas nesse período. Quando a estação Nota bipar com a quantidade, aparece aqui.</div>';
+  renderProdCli(arr,totalPecas,r);
+  renderProdChurn();
 }
-function renderProdCli(startMs,dias,notaTs){
+function renderProdPie(arr,total){
+  const cv=document.getElementById('prodPie'); if(typeof Chart==='undefined'||!cv)return;
+  if(!arr.length){if(prodPie){prodPie.destroy();prodPie=null;}return;}
+  if(!(prodPie||cv.offsetParent))return;
+  const labels=arr.map(a=>a.nome),data=arr.map(a=>a.pecas),bg=arr.map((a,i)=>PIE_COLORS[i%PIE_COLORS.length]);
+  const surf=(getComputedStyle(document.body).getPropertyValue('--surface')||'#fff').trim()||'#fff';
+  if(!prodPie){
+    prodPie=new Chart(cv,{type:'doughnut',data:{labels:labels,datasets:[{data:data,backgroundColor:bg,borderWidth:2,borderColor:surf}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{display:false},datalabels:{display:false},tooltip:{callbacks:{label:function(c){return c.label+': '+Number(c.raw).toLocaleString('pt-BR')+' pç ('+(total?Math.round(c.raw/total*100):0)+'%)';}}}}}});
+    requestAnimationFrame(function(){if(prodPie)prodPie.resize();});
+  } else {prodPie.data.labels=labels;prodPie.data.datasets[0].data=data;prodPie.data.datasets[0].backgroundColor=bg;prodPie.data.datasets[0].borderColor=surf;prodPie.update();prodPie.resize();}
+}
+function renderProdCli(arr,total,r){
   const t=document.getElementById('prodCliTable'); if(!t)return;
   const q=((document.getElementById('prodBuscaCli')||{}).value||'').trim().toLowerCase();
-  const agg={};
-  PEDIDOS.forEach(p=>{const key=p.cliente_id||p.cliente||'?';const a=agg[key]=agg[key]||{nome:p.cliente||'—',lanc:0,fin:0,last:0};
-    const c=new Date(p.created_at).getTime(); if(c>=startMs)a.lanc++; if(c>a.last)a.last=c;
-    if(notaTs[p.id]&&notaTs[p.id]>=startMs)a.fin++;});
-  let arr=Object.keys(agg).map(k=>agg[k]).filter(a=>a.lanc>0||a.fin>0);
-  if(q)arr=arr.filter(a=>a.nome.toLowerCase().includes(q));
-  arr.sort((a,b)=>b.lanc-a.lanc||b.fin-a.fin);
-  if(!arr.length){t.innerHTML='<tbody><tr><td><div class="empty">Sem produção no período'+(q?' pra "'+esc(q)+'"':'')+'.</div></td></tr></tbody>';return;}
-  let body='';arr.forEach(a=>{const dd=a.last?Math.floor((Date.now()-a.last)/864e5):null;
-    body+='<tr><td class="cli">'+esc(a.nome)+'</td><td>'+a.lanc+'</td><td>'+a.fin+'</td><td>'+(a.fin/dias).toFixed(1)+'</td><td class="ref">'+(dd==null?'—':(dd===0?'hoje':dd+'d atrás'))+'</td></tr>';});
-  t.innerHTML='<thead><tr><th>Cliente</th><th>Lançados</th><th>Finalizados</th><th>Média/dia</th><th>Último pedido</th></tr></thead><tbody>'+body+'</tbody>';
+  let rows=arr.slice(); if(q)rows=rows.filter(a=>a.nome.toLowerCase().includes(q));
+  if(!rows.length){t.innerHTML='<tbody><tr><td><div class="empty">Sem peças no período'+(q?(' pra "'+esc(q)+'"'):'')+'.</div></td></tr></tbody>';return;}
+  const N=n=>Number(n).toLocaleString('pt-BR');
+  let body='';rows.forEach((a,i)=>{
+    body+='<tr><td><span class="ord '+(i<3?'hot':'')+'">'+(i+1)+'</span></td><td class="cli">'+esc(a.nome)+'</td><td>'+N(a.pecas)+'</td><td>'+(total?Math.round(a.pecas/total*100):0)+'%</td><td>'+a.pedidos+'</td><td class="ref">'+(r.nDias?N(Math.round(a.pecas/r.nDias)):'—')+'</td></tr>';});
+  t.innerHTML='<thead><tr><th>#</th><th>Cliente</th><th>Peças</th><th>% período</th><th>Pedidos</th><th>Média/dia</th></tr></thead><tbody>'+body+'</tbody>';
 }
 function renderProdChurn(){
   const t=document.getElementById('prodChurnTable'); if(!t)return;
@@ -986,17 +1017,24 @@ function renderBip(){
   const extra = station==='enfesto'
     ? `<div style="margin-top:6px;color:var(--muted);font-size:13px">Máquina <strong style="color:${enfMaquina==='azul'?'#185fa5':'#0f1729'}">${enfMaquina.toUpperCase()}</strong> · <a href="#" onclick="enfMaquina=null;renderBip();return false">trocar</a></div>`
     : (role==='gerente'?`<div style="margin-top:6px"><a href="#" onclick="gStation=null;enfMaquina=null;renderBip();return false">trocar etapa</a></div>`:'');
+  const ehNota = station==='nota';
+  const notaField = ehNota
+    ? `<div style="max-width:380px;margin:14px auto 4px"><label style="display:block;font-size:13px;color:var(--muted);font-weight:550;margin-bottom:6px">Quantidade de peças cortadas <span style="color:var(--red)">* obrigatório</span></label><input type="number" id="notaPecas" min="1" step="1" placeholder="ex: 500" autocomplete="off" /></div>`
+    : '';
   area.innerHTML=`<div class="scanbox">
     <div class="stationbadge"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};margin-right:9px"></span>Estação ${STAGE_LABEL[station]}</div>
     ${extra}
-    <div style="color:var(--muted);font-size:13px;margin-top:10px">Bipe o código do pedido</div>
+    ${notaField}
+    <div style="color:var(--muted);font-size:13px;margin-top:10px">${ehNota?'Depois bipe o código do pedido':'Bipe o código do pedido'}</div>
     <input type="text" id="scanInput" placeholder="Bipe ou digite o código + Enter" autocomplete="off" />
     <div class="scanmsg" id="scanMsg"></div>
   </div>`;
   const inp=document.getElementById('scanInput');
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();handleScan(inp.value);inp.value='';}});
-  inp.addEventListener('blur',()=>{if(viewActive('estacoes'))setTimeout(()=>{const x=document.getElementById('scanInput');if(x)x.focus();},10);});
-  setTimeout(()=>inp.focus(),50);
+  inp.addEventListener('blur',()=>{if(viewActive('estacoes'))setTimeout(()=>{const ae=document.activeElement;if(ae&&ae.id==='notaPecas')return;const x=document.getElementById('scanInput');if(x)x.focus();},10);});
+  const np=document.getElementById('notaPecas');
+  if(np)np.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const s=document.getElementById('scanInput');if(s)s.focus();}});
+  setTimeout(()=>{const f=document.getElementById(ehNota?'notaPecas':'scanInput');if(f)f.focus();},50);
   updateScanIndicator();
 }
 function setGStation(s){gStation=s;enfMaquina=null;renderBip();}
@@ -1005,6 +1043,19 @@ async function handleScan(code){
   const msg=document.getElementById('scanMsg');if(!msg)return;
   if(!activeBipStation){msg.className='scanmsg err';msg.textContent='Escolha a estação/máquina primeiro.';return;}
   if(!code.trim())return;
+  if(activeBipStation==='nota'){
+    const pin=document.getElementById('notaPecas');
+    const pecas=pin?parseInt(pin.value,10):NaN;
+    if(!(pecas>0)){msg.className='scanmsg err';msg.textContent='⛔ Informe a quantidade de peças antes de bipar.';if(pin)pin.focus();return;}
+    msg.className='scanmsg';msg.textContent='…';
+    // grava as peças primeiro (valida o pedido); só bipa se gravou
+    const pr=await rpc('set_pecas',{p_token:currentUser.token,p_codigo:code.trim(),p_pecas:pecas});
+    if(!pr||pr.ok!==true){msg.className='scanmsg err';msg.textContent='⛔ '+((pr&&pr.msg)||'Não consegui gravar as peças');return;}
+    const r=await bipe(code,activeBipStation,activeBipOperador);
+    msg.className='scanmsg '+(r.ok?'ok':'err');msg.textContent=r.msg+(r.ok?(' · '+pecas+' peças'):'');
+    if(r.ok&&pin){pin.value='';pin.focus();}
+    return;
+  }
   msg.className='scanmsg';msg.textContent='…';
   const r=await bipe(code,activeBipStation,activeBipOperador);
   msg.className='scanmsg '+(r.ok?'ok':'err');msg.textContent=r.msg;
@@ -1017,6 +1068,7 @@ function updateScanIndicator(){const ind=document.getElementById('scanIndicator'
 let buf='',lastT=0;
 document.addEventListener('keydown',e=>{
   if(!currentUser||!viewActive('estacoes')||!activeBipStation)return;
+  if(activeBipStation==='nota')return; // Nota exige peças -> só pelo campo (handleScan)
   const tag=(document.activeElement&&document.activeElement.tagName)||'';
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
   const now=Date.now();if(now-lastT>120)buf='';lastT=now;
@@ -1048,8 +1100,9 @@ document.getElementById('tlHoje').addEventListener('click',()=>{document.getElem
 document.getElementById('tlTodos').addEventListener('click',()=>{document.getElementById('tlData').value='';document.getElementById('tlBusca').value='';renderTimelog();});
 document.getElementById('tlBusca').addEventListener('input',renderTimelog);
 /* produção (item 6) */
-document.getElementById('prodChips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;prodPeriodo=b.dataset.p;document.querySelectorAll('#prodChips .gchip').forEach(x=>x.classList.toggle('on',x===b));renderProducao();});
+document.getElementById('prodChips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;prodPeriodo=b.dataset.p;document.querySelectorAll('#prodChips .gchip').forEach(x=>x.classList.toggle('on',x===b));document.getElementById('prodData').style.visibility=(prodPeriodo==='geral')?'hidden':'visible';renderProducao();});
 document.getElementById('prodBuscaCli').addEventListener('input',renderProducao);
+document.getElementById('prodData').addEventListener('change',renderProducao);
 /* uso do banco (item 5) */
 document.getElementById('reloadDb').addEventListener('click',loadDbUsage);
 
