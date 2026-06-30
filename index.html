@@ -237,12 +237,20 @@
     <div class="card" style="margin-bottom:22px">
       <div class="head">
         <div><h2>Pedidos ativos</h2><div class="sub">Some só quando risco + enfesto + corte + nota + retirada = Sim (pagamento pode ficar pendente)</div></div>
-        <div class="row-inline"><button class="btn ghost" id="toggleDone">Mostrar concluídos</button><button class="btn primary" onclick="go('lancar')">+ Lançar pedido</button></div>
+        <div class="row-inline" style="flex-wrap:wrap"><input type="text" id="painelBusca" placeholder="🔎 Buscar cliente / Nº / código (acha concluídos)" style="max-width:280px" /><button class="btn ghost" id="toggleDone">Mostrar concluídos</button><button class="btn primary" onclick="go('lancar')">+ Lançar pedido</button></div>
       </div>
       <div style="overflow-x:auto"><table id="painelTable"></table></div>
     </div>
     <div class="card">
-      <div class="head"><div><h2>Registro de tempo — bipagens</h2><div class="sub">Cada pedido numa linha, em sequência: Lançado → Risco → Enfesto → Corte → Nota</div></div></div>
+      <div class="head">
+        <div><h2>Registro de tempo — bipagens</h2><div class="sub">Cada pedido numa linha: Lançado → Risco → Enfesto → Corte → Nota</div></div>
+        <div class="row-inline" style="gap:8px;flex-wrap:wrap">
+          <input type="date" id="tlData" style="max-width:160px" title="Mostrar pedidos lançados nesse dia" />
+          <button class="btn sm ghost" id="tlHoje">Hoje</button>
+          <button class="btn sm ghost" id="tlTodos">Todos</button>
+          <input type="text" id="tlBusca" placeholder="🔎 cliente / Nº" style="max-width:180px" />
+        </div>
+      </div>
       <div class="timelog" id="timelog"></div>
     </div>
   </section>
@@ -351,6 +359,25 @@
     </div>
   </section>
 
+  <section class="view" id="v-producao">
+    <div class="stats" id="prodStats"></div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="head">
+        <div><h2>Produção por dia</h2><div class="sub">Pedidos finalizados (Nota bipada) a cada dia</div></div>
+        <div class="gchips" id="prodChips"><button class="gchip" data-p="7">7 dias</button><button class="gchip on" data-p="14">14 dias</button><button class="gchip" data-p="30">30 dias</button></div>
+      </div>
+      <div style="padding:0 18px 22px"><div style="position:relative;height:280px"><canvas id="prodCanvas" role="img" aria-label="Produção por dia"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="head"><div><h2>Por cliente</h2><div class="sub">Pedidos no período, total e média por dia ativo</div></div><input type="text" id="prodBuscaCli" placeholder="🔎 cliente" style="max-width:220px" /></div>
+      <div style="overflow-x:auto"><table id="prodCliTable"></table></div>
+    </div>
+    <div class="card">
+      <div class="head"><div><h2>Clientes em risco (churn)</h2><div class="sub">Sem pedido novo há 30+ dias — vale uma ligação. <span style="color:var(--amber)">[sinal, não certeza]</span></div></div></div>
+      <div style="overflow-x:auto"><table id="prodChurnTable"></table></div>
+    </div>
+  </section>
+
   <section class="view" id="v-admin">
     <div class="card" style="margin-bottom:22px">
       <div class="head"><div><h2>Usuários e estações</h2><div class="sub">Libere quem fez login e atribua a estação. Sem isso, ninguém usa o sistema.</div></div><button class="btn ghost" id="reloadUsers">Atualizar</button></div>
@@ -359,6 +386,10 @@
     <div class="card" style="margin-bottom:22px">
       <div class="head"><div><h2>Clientes &amp; pedidos</h2><div class="sub">Todos os clientes e o histórico (inclui concluídos) — busca por nome, código ou ref</div></div><input type="text" id="cliSearch" placeholder="Buscar cliente / código / ref..." style="max-width:300px" /></div>
       <div id="clientesPanel" style="padding:12px 0"></div>
+    </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="head"><div><h2>Uso do banco de dados</h2><div class="sub">Pra avisar antes de encher. Contagem é real; o tamanho em MB é estimativa.</div></div><button class="btn ghost" id="reloadDb">Atualizar</button></div>
+      <div id="dbUsage" style="padding:18px"><div class="ref">Carregando…</div></div>
     </div>
     <div class="card" style="margin-bottom:22px">
       <div class="head"><div><h2>Notificações WhatsApp</h2><div class="sub">Avisos enviados ao cliente quando a Nota é bipada</div></div><button class="btn ghost" id="reloadNotif">Atualizar</button></div>
@@ -391,6 +422,20 @@
     </div>
   </div>
 </div>
+
+<div id="editClienteModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,20,.55);z-index:100;align-items:center;justify-content:center;padding:20px">
+  <div class="card" style="max-width:520px;width:100%;max-height:92vh;overflow:auto">
+    <div class="head"><div><h2>Editar cliente</h2><div class="sub" id="ecNome"></div></div><button class="btn ghost" onclick="fecharEditarCliente()">Fechar</button></div>
+    <div class="form">
+      <div class="field full"><label>Nome</label><input type="text" id="ec_nome" /></div>
+      <div class="field"><label>CPF / CNPJ</label><input type="text" id="ec_cpf_cnpj" /></div>
+      <div class="field"><label>Telefone</label><input type="text" id="ec_telefone" placeholder="com DDD" /></div>
+      <div class="field full"><label>Endereço</label><input type="text" id="ec_endereco" /></div>
+      <div class="authmsg" id="ecMsg" style="grid-column:1/-1;text-align:left"></div>
+      <div class="field full row-inline" style="justify-content:flex-end"><button class="btn ghost" onclick="fecharEditarCliente()">Cancelar</button><button class="btn primary" id="btnSalvarCli" onclick="salvarEditarCliente()">Salvar cliente</button></div>
+    </div>
+  </div>
+</div>
 <button class="themebtn" id="themeBtn" title="Aparência" aria-label="Aparência">◐</button>
 <div class="themepanel" id="themePanel">
   <h4>Tema</h4>
@@ -420,12 +465,12 @@ const STAGE_LABEL={risco:'Risco',enfesto:'Enfesto',corte:'Corte',nota:'Nota'};
 const STAGE_COLOR={risco:'#7a4ad8',enfesto:'#185fa5',corte:'#b7791f',nota:'#0f9d8f'};
 const PAPEL_LABEL={gerente:'Gerente',risco:'Risco (cria pedidos)',enfesto:'Enfesto',corte:'Corte',nota:'Nota'};
 const TABS_BY_ROLE={
-  gerente:['painel','board','lancar','impressao','estacoes','gargalo','admin'],
-  risco:['painel','board','lancar','impressao','estacoes','gargalo'],
+  gerente:['painel','board','lancar','impressao','estacoes','gargalo','producao','admin'],
+  risco:['painel','board','lancar','impressao','estacoes','gargalo','producao'],
   enfesto:['estacoes'], corte:['estacoes'], nota:['estacoes']
 };
 let CLIENTES=[];
-const TAB_LABEL={painel:'Painel',board:'Quadro',lancar:'Lançar pedido',impressao:'Impressão',estacoes:'Bipar',gargalo:'Gargalo',admin:'Admin'};
+const TAB_LABEL={painel:'Painel',board:'Quadro',lancar:'Lançar pedido',impressao:'Impressão',estacoes:'Bipar',gargalo:'Gargalo',producao:'Produção',admin:'Admin'};
 
 function loadAuth(){try{return JSON.parse(localStorage.getItem(AUTHKEY))||null;}catch(e){return null;}}
 function saveAuth(){if(currentUser)localStorage.setItem(AUTHKEY,JSON.stringify(currentUser));else localStorage.removeItem(AUTHKEY);}
@@ -489,6 +534,7 @@ function enterApp(){
   document.getElementById('authScreen').style.display='none';
   document.getElementById('appShell').style.display='block';
   document.getElementById('roleLine').textContent=PAPEL_LABEL[currentUser.papel]+' · '+currentUser.username;
+  const td=document.getElementById('tlData'); if(td&&!td.value)td.value=tlHojeStr(); // registro de tempo começa em "hoje"
   const tabs=TABS_BY_ROLE[currentUser.papel]||['estacoes'];
   const nav=document.getElementById('tabs');
   nav.style.display=tabs.length>1?'flex':'none';
@@ -580,11 +626,16 @@ function renderStats(){
     <div class="stat"><div class="k">Gargalo agora</div><div class="v warn">${g?(STAGE_LABEL[g.stage]+' · '+fmtDur(g.avg)):'sem dados'}</div></div>`;
 }
 function renderPainel(){
+  const busca=((document.getElementById('painelBusca')||{}).value||'').trim().toLowerCase();
   const open=openPedidos();
   const done=PEDIDOS.filter(isFinalizado).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const rows=showDone?open.concat(done):open;
+  let rows;
+  if(busca){
+    const m=p=>(p.cliente||'').toLowerCase().includes(busca)||String(p.numero||'').toLowerCase().includes(busca)||String(p.codigo||'').toLowerCase().includes(busca)||String(p.ref||p.ref_molde||'').toLowerCase().includes(busca);
+    rows=PEDIDOS.filter(m).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  } else { rows=showDone?open.concat(done):open; }
   const t=document.getElementById('painelTable'); const ger=isGerente();
-  if(!rows.length){t.innerHTML=`<tbody><tr><td><div class="empty"><div class="big">Nenhum pedido ativo</div>Lance um pedido pra começar.</div></td></tr></tbody>`;return;}
+  if(!rows.length){t.innerHTML=`<tbody><tr><td><div class="empty"><div class="big">${busca?'Nada encontrado pra "'+esc(busca)+'"':'Nenhum pedido ativo'}</div>${busca?'Tente outro nome, número ou código.':'Lance um pedido pra começar.'}</div></td></tr></tbody>`;return;}
   let body='';
   rows.forEach((p,i)=>{
     const fin=isFinalizado(p);
@@ -601,13 +652,19 @@ function renderPainel(){
   });
   t.innerHTML=`<thead><tr><th>Ord.</th><th>Cliente</th><th>Nº</th><th>REF</th><th>Prazo</th><th>Risco</th><th>Enfesto</th><th>Corte</th><th>Nota</th><th>Pgto</th><th>Retirada</th><th>Código</th>${ger?'<th></th>':(canPainel()?'<th></th>':'')}</tr></thead><tbody>${body}</tbody>`;
 }
+function tlHojeStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function renderTimelog(){
   const el=document.getElementById('timelog');
   const ev={};EVENTOS.forEach(e=>{const m=ev[e.pedido_id]=ev[e.pedido_id]||{};if(m[e.stage]==null||new Date(e.ts)<new Date(m[e.stage]))m[e.stage]=e.ts;});
-  const peds=PEDIDOS.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,120)
-    .sort((a,b)=>{const c=(a.cliente||'').localeCompare(b.cliente||'',undefined,{sensitivity:'base'});if(c)return c;return String(a.numero||a.codigo||'').localeCompare(String(b.numero||b.codigo||''),undefined,{numeric:true});});
-  if(!peds.length){el.innerHTML='<div class="empty">Nenhum pedido ainda.</div>';return;}
-  const cell=t=>t?'<span class="tt-h">'+fmtTime(t)+'</span>':'<span class="tt-x">—</span>';
+  const busca=((document.getElementById('tlBusca')||{}).value||'').trim().toLowerCase();
+  const dia=((document.getElementById('tlData')||{}).value||'');
+  let peds=PEDIDOS.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)); // mais recente → mais antigo
+  if(busca){peds=peds.filter(p=>(p.cliente||'').toLowerCase().includes(busca)||String(p.numero||'').toLowerCase().includes(busca)||String(p.codigo||'').toLowerCase().includes(busca));}
+  else if(dia){peds=peds.filter(p=>String(p.created_at).slice(0,10)===dia);}
+  peds=peds.slice(0,300);
+  if(!peds.length){el.innerHTML='<div class="empty">'+(busca?('Nada encontrado pra "'+esc(busca)+'".'):(dia?'Nenhum pedido lançado nesse dia — clique em "Todos".':'Nenhum pedido ainda.'))+'</div>';return;}
+  const showDate=!!busca||!dia;
+  const cell=t=>{if(!t)return '<span class="tt-x">—</span>';const d=new Date(t);const pre=showDate?(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '):'';return '<span class="tt-h">'+pre+fmtTime(t)+'</span>';};
   const rows=peds.map(p=>{const e=ev[p.id]||{};
     return '<tr><td class="tt-ped"><b>'+(esc(p.numero)||esc(p.codigo))+'</b> · '+esc(p.cliente)+'</td><td>'+cell(p.created_at)+'</td><td>'+cell(e.risco)+'</td><td>'+cell(e.enfesto)+'</td><td>'+cell(e.corte)+'</td><td>'+cell(e.nota)+'</td></tr>';}).join('');
   el.innerHTML='<table class="timetab"><thead><tr><th>Pedido (Nº · Cliente)</th><th>Lançado</th><th>Risco</th><th>Enfesto</th><th>Corte</th><th>Nota</th></tr></thead><tbody>'+rows+'</tbody></table>';
@@ -703,15 +760,30 @@ function drawFolha(p){
   g('foGrade').textContent=p.grade||'—';
   g('foObs').textContent=p.obs||'';
 }
-function printWith(pageCss,cls){
-  const st=document.createElement('style');st.textContent='@media print{@page{'+pageCss+'}}';document.head.appendChild(st);
-  document.body.classList.add(cls);
-  function done(){document.body.classList.remove(cls);st.remove();window.removeEventListener('afterprint',done);}
-  window.addEventListener('afterprint',done);
-  window.print();
+// Impressão isolada num iframe: SÓ o conteúdo escolhido vai pra impressora.
+// Isso elimina as páginas em branco/repetidas (o resto da página não entra mais).
+function printViaIframe(node,pageCss,extraCss){
+  if(!node){alert('Escolha um pedido primeiro.');return;}
+  const old=document.getElementById('printFrame'); if(old)old.remove();
+  const ifr=document.createElement('iframe'); ifr.id='printFrame';
+  ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(ifr);
+  const doc=ifr.contentWindow.document;
+  const baseCss=document.querySelector('style').textContent;
+  doc.open();
+  doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>'+baseCss+'</style>'+
+    '<style>html,body{margin:0;padding:0;background:#fff}.label{border:none!important}'+
+    '@media print{@page{'+pageCss+'}html,body{margin:0;padding:0;background:#fff}*{visibility:visible!important}'+(extraCss||'')+'}'+
+    '</style></head><body>'+node.outerHTML+'</body></html>');
+  doc.close();
+  function go(){try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){console.error('print',e);}
+    setTimeout(function(){const f=document.getElementById('printFrame');if(f)f.remove();},2000);}
+  // dá um tempo pro SVG do código de barras e o layout renderizarem dentro do iframe
+  if(ifr.contentWindow.document.readyState==='complete')setTimeout(go,350);
+  else ifr.contentWindow.onload=function(){setTimeout(go,350);};
 }
-function imprimirEtiqueta(){printWith('size:60mm 40mm;margin:0','print-label');}
-function imprimirFolha(){printWith('size:A4;margin:12mm','print-folha');}
+function imprimirEtiqueta(){printViaIframe(document.getElementById('printArea'),'size:60mm 40mm;margin:0','html,body{width:60mm;height:40mm;overflow:hidden}');}
+function imprimirFolha(){printViaIframe(document.getElementById('folhaArea'),'size:A4;margin:12mm');}
 
 /* ---------- admin (gerente) ---------- */
 async function loadUsers(){
@@ -773,12 +845,122 @@ function renderClientesPanel(){
     const peds=PEDIDOS.filter(p=>p.cliente_id===c.id).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
     if(q){const hit=c.nome.toLowerCase().includes(q)||((c.cpf_cnpj||'').toLowerCase().includes(q))||peds.some(p=>(p.codigo||'').toLowerCase().includes(q)||(p.ref_molde||'').toLowerCase().includes(q)||(p.material||'').toLowerCase().includes(q)||(p.numero||'').toLowerCase().includes(q));if(!hit)return '';}
     const rows=peds.map(p=>'<tr><td class="code">'+esc(p.codigo)+'</td><td>'+(esc(p.numero)||'—')+'</td><td class="ref">'+(esc(p.ref_molde||p.material)||'—')+'</td><td>'+statusPedido(p)+'</td><td class="ref">'+new Date(p.created_at).toLocaleDateString('pt-BR')+'</td><td><button class="btn sm" onclick="abrirEditar(\''+p.id+'\')" title="Editar">✎</button></td></tr>').join('')||'<tr><td colspan="6" class="ref" style="padding:8px 12px">sem pedidos</td></tr>';
-    return '<div class="clientebox"><div class="clientehead"><div><span class="cnome">'+esc(c.nome)+'</span> <span class="ref">'+(esc(c.cpf_cnpj)||'')+'</span></div><span class="ref">'+peds.length+' pedido(s)</span></div><div class="ref" style="font-size:12px;margin-bottom:8px">'+(esc(c.telefone)||'')+(c.endereco?(' · '+esc(c.endereco)):'')+'</div><table><thead><tr><th>Código</th><th>Nº</th><th>Ref/Material</th><th>Status</th><th>Data</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    return '<div class="clientebox"><div class="clientehead"><div><span class="cnome">'+esc(c.nome)+'</span> <span class="ref">'+(esc(c.cpf_cnpj)||'')+'</span></div><div class="row-inline" style="gap:8px"><span class="ref">'+peds.length+' pedido(s)</span>'+(isGerente()?'<button class="btn sm" onclick="abrirEditarCliente(\''+c.id+'\')" title="Editar cliente">✎ Editar</button>':'')+'</div></div><div class="ref" style="font-size:12px;margin-bottom:8px">'+(esc(c.telefone)||'')+(c.endereco?(' · '+esc(c.endereco)):'')+'</div><table><thead><tr><th>Código</th><th>Nº</th><th>Ref/Material</th><th>Status</th><th>Data</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }).filter(Boolean).join('');
   el.innerHTML=cards||'<div class="empty">Nenhum cliente'+(q?(' pra "'+esc(q)+'"'):' ainda')+'.</div>';
 }
 
-function renderAll(){if(!canPainel())return;renderStats();renderPainel();renderTimelog();renderBoard();renderGargalo();renderPrintSelect();renderAdmin();renderClientesPanel();}
+/* ---------- PRODUÇÃO (item 6 — analytics; peças por unidade entram após o supabase_v6) ---------- */
+let prodChart=null, prodPeriodo='14';
+function renderProducao(){
+  const dias=parseInt(prodPeriodo,10)||14;
+  const today=new Date(); const start=new Date(today.getFullYear(),today.getMonth(),today.getDate()-(dias-1)); const startMs=start.getTime();
+  const notaTs={};EVENTOS.forEach(e=>{if(e.stage!=='nota')return;const t=new Date(e.ts).getTime();if(notaTs[e.pedido_id]==null||t<notaTs[e.pedido_id])notaTs[e.pedido_id]=t;});
+  const lk=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const dayList=[],labels=[],buckets={};
+  for(let i=0;i<dias;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);const k=lk(d);dayList.push(k);buckets[k]=0;labels.push(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'));}
+  let totalFin=0;
+  for(const pid in notaTs){const t=notaTs[pid];if(t>=startMs){const k=lk(new Date(t));if(k in buckets){buckets[k]++;totalFin++;}}}
+  const counts=dayList.map(k=>buckets[k]);
+  const lancPeriodo=PEDIDOS.filter(p=>new Date(p.created_at).getTime()>=startMs);
+  const cliAtivos=new Set(lancPeriodo.map(p=>p.cliente_id||p.cliente)).size;
+  const ps=document.getElementById('prodStats');
+  if(ps)ps.innerHTML=
+    '<div class="stat"><div class="k">Finalizados ('+dias+'d)</div><div class="v">'+totalFin+'</div></div>'+
+    '<div class="stat"><div class="k">Média por dia</div><div class="v">'+(totalFin/dias).toFixed(1)+'</div></div>'+
+    '<div class="stat"><div class="k">Lançados ('+dias+'d)</div><div class="v">'+lancPeriodo.length+'</div></div>'+
+    '<div class="stat"><div class="k">Clientes ativos</div><div class="v">'+cliAtivos+'</div></div>';
+  const cv=document.getElementById('prodCanvas');
+  if(typeof Chart!=='undefined'&&cv&&(prodChart||cv.offsetParent)){
+    const accent=(getComputedStyle(document.body).getPropertyValue('--accent')||'#2f6bff').trim()||'#2f6bff';
+    if(!prodChart){
+      prodChart=new Chart(cv,{type:'bar',data:{labels:labels,datasets:[{data:counts,backgroundColor:accent,borderRadius:6,maxBarThickness:38}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},tooltip:{callbacks:{label:c=>c.raw+' pedido(s)'}}},
+          scales:{y:{beginAtZero:true,ticks:{precision:0,color:'#8a93a3'},grid:{color:'rgba(130,130,130,.14)'}},x:{ticks:{color:'#8a93a3',font:{size:11}},grid:{display:false}}}}});
+      requestAnimationFrame(function(){if(prodChart)prodChart.resize();});
+    } else {prodChart.data.labels=labels;prodChart.data.datasets[0].data=counts;prodChart.data.datasets[0].backgroundColor=accent;prodChart.update();prodChart.resize();}
+  }
+  renderProdCli(startMs,dias,notaTs); renderProdChurn();
+}
+function renderProdCli(startMs,dias,notaTs){
+  const t=document.getElementById('prodCliTable'); if(!t)return;
+  const q=((document.getElementById('prodBuscaCli')||{}).value||'').trim().toLowerCase();
+  const agg={};
+  PEDIDOS.forEach(p=>{const key=p.cliente_id||p.cliente||'?';const a=agg[key]=agg[key]||{nome:p.cliente||'—',lanc:0,fin:0,last:0};
+    const c=new Date(p.created_at).getTime(); if(c>=startMs)a.lanc++; if(c>a.last)a.last=c;
+    if(notaTs[p.id]&&notaTs[p.id]>=startMs)a.fin++;});
+  let arr=Object.keys(agg).map(k=>agg[k]).filter(a=>a.lanc>0||a.fin>0);
+  if(q)arr=arr.filter(a=>a.nome.toLowerCase().includes(q));
+  arr.sort((a,b)=>b.lanc-a.lanc||b.fin-a.fin);
+  if(!arr.length){t.innerHTML='<tbody><tr><td><div class="empty">Sem produção no período'+(q?' pra "'+esc(q)+'"':'')+'.</div></td></tr></tbody>';return;}
+  let body='';arr.forEach(a=>{const dd=a.last?Math.floor((Date.now()-a.last)/864e5):null;
+    body+='<tr><td class="cli">'+esc(a.nome)+'</td><td>'+a.lanc+'</td><td>'+a.fin+'</td><td>'+(a.fin/dias).toFixed(1)+'</td><td class="ref">'+(dd==null?'—':(dd===0?'hoje':dd+'d atrás'))+'</td></tr>';});
+  t.innerHTML='<thead><tr><th>Cliente</th><th>Lançados</th><th>Finalizados</th><th>Média/dia</th><th>Último pedido</th></tr></thead><tbody>'+body+'</tbody>';
+}
+function renderProdChurn(){
+  const t=document.getElementById('prodChurnTable'); if(!t)return;
+  const churn=[];
+  CLIENTES.forEach(c=>{const peds=PEDIDOS.filter(p=>p.cliente_id===c.id);if(!peds.length)return;
+    const last=Math.max.apply(null,peds.map(p=>new Date(p.created_at).getTime()));
+    const dd=Math.floor((Date.now()-last)/864e5); if(dd>=30)churn.push({nome:c.nome,dias:dd,total:peds.length,tel:c.telefone});});
+  churn.sort((a,b)=>b.dias-a.dias);
+  if(!churn.length){t.innerHTML='<tbody><tr><td><div class="empty">Nenhum cliente parado há 30+ dias. 👍</div></td></tr></tbody>';return;}
+  let body='';churn.forEach(c=>{body+='<tr><td class="cli">'+esc(c.nome)+'</td><td>'+c.dias+' dias</td><td>'+c.total+'</td><td class="ref">'+(esc(c.tel)||'—')+'</td></tr>';});
+  t.innerHTML='<thead><tr><th>Cliente</th><th>Parado há</th><th>Pedidos (total)</th><th>Telefone</th></tr></thead><tbody>'+body+'</tbody>';
+}
+
+/* ---------- USO DO BANCO (item 5 — leitura pura, count) ---------- */
+async function loadDbUsage(){
+  const box=document.getElementById('dbUsage'); if(!box)return;
+  async function cnt(tbl){try{const r=await sb.from(tbl).select('*',{count:'exact',head:true});return r.count==null?null:r.count;}catch(e){return null;}}
+  const res=await Promise.all([cnt('pedidos'),cnt('eventos'),cnt('notificacoes')]);
+  const np=res[0],ne=res[1],nn=res[2];
+  const estMB=((np||0)*900+(ne||0)*350+(nn||0)*650)/1048576, LIMITE=500;
+  const pct=Math.min(100,estMB/LIMITE*100);
+  const cor=pct>=85?'var(--red)':pct>=60?'var(--amber)':'var(--green)';
+  const aviso=pct>=85?'<div style="color:var(--red);font-weight:600;margin-top:10px">⚠ Banco quase cheio — arquive/limpe eventos antigos ou suba o plano do Supabase.</div>'
+    :pct>=60?'<div style="color:var(--amber);font-weight:600;margin-top:10px">Atenção: passando de 60% (estimado). Fique de olho.</div>'
+    :'<div style="color:var(--muted);margin-top:10px">Folga boa — sem preocupação por enquanto.</div>';
+  box.innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">'+
+    '<div class="stat"><div class="k">Pedidos</div><div class="v">'+(np==null?'—':np)+'</div></div>'+
+    '<div class="stat"><div class="k">Eventos (bipes)</div><div class="v">'+(ne==null?'—':ne)+'</div></div>'+
+    '<div class="stat"><div class="k">Notificações</div><div class="v">'+(nn==null?'—':nn)+'</div></div></div>'+
+    '<div style="font-size:13px;margin-bottom:6px"><b>~'+estMB.toFixed(1)+' MB</b> de ~'+LIMITE+' MB <span class="ref">— estimativa por nº de registros, não é o número exato do Supabase</span></div>'+
+    '<div class="track" style="height:12px;background:var(--bg);border-radius:999px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+cor+'"></div></div>'+aviso;
+}
+
+/* ---------- EDITAR CLIENTE (item 8 — precisa do supabase_v6: editar_cliente) ---------- */
+let editClienteId=null;
+function abrirEditarCliente(id){const c=CLIENTES.find(x=>x.id===id);if(!c)return;editClienteId=id;
+  document.getElementById('ecNome').textContent='Cliente: '+c.nome;
+  document.getElementById('ec_nome').value=c.nome||'';
+  document.getElementById('ec_cpf_cnpj').value=c.cpf_cnpj||'';
+  document.getElementById('ec_telefone').value=c.telefone||'';
+  document.getElementById('ec_endereco').value=c.endereco||'';
+  document.getElementById('ecMsg').textContent='';
+  document.getElementById('editClienteModal').style.display='flex';}
+function fecharEditarCliente(){document.getElementById('editClienteModal').style.display='none';editClienteId=null;}
+async function salvarEditarCliente(){
+  if(!editClienteId)return;const btn=document.getElementById('btnSalvarCli'),msg=document.getElementById('ecMsg');btn.disabled=true;msg.className='authmsg';msg.textContent='Salvando…';
+  const r=await rpc('editar_cliente',{p_token:currentUser.token,p_id:editClienteId,
+    p_nome:document.getElementById('ec_nome').value.trim(),
+    p_cpf_cnpj:document.getElementById('ec_cpf_cnpj').value.trim(),
+    p_telefone:document.getElementById('ec_telefone').value.trim(),
+    p_endereco:document.getElementById('ec_endereco').value.trim()});
+  btn.disabled=false;
+  if(!r||r.ok!==true){
+    const m=(r&&r.msg)||'';
+    if(r===null||/could not find|schema cache|function/i.test(m)){msg.className='authmsg err';msg.textContent='Falta aplicar a atualização do banco (supabase_v6). Nada foi alterado.';}
+    else{msg.className='authmsg err';msg.textContent='Erro: '+(m||'não autorizado');}
+    return;
+  }
+  msg.className='authmsg ok';msg.textContent='Salvo!';
+  await loadClientes(); renderClientesPanel(); if(canPainel())await loadAll();
+  setTimeout(fecharEditarCliente,600);
+}
+
+function renderAll(){if(!canPainel())return;renderStats();renderPainel();renderTimelog();renderBoard();renderGargalo();renderPrintSelect();renderAdmin();renderClientesPanel();if(viewActive('producao'))renderProducao();}
 
 /* ---------- BIPAR (estações) ---------- */
 function renderBip(){
@@ -849,14 +1031,27 @@ function go(v){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='v-'+v));
   if(v==='estacoes')renderBip();
-  if(v==='admin'&&isGerente()){loadUsers();loadClientes().then(renderClientesPanel);loadNotificacoes();}
+  if(v==='admin'&&isGerente()){loadUsers();loadClientes().then(renderClientesPanel);loadNotificacoes();loadDbUsage();}
   if(v==='impressao')drawLabel();
   if(v==='lancar')setNextNumero();
   if(v==='gargalo')setTimeout(renderGargalo,60);
+  if(v==='producao')setTimeout(renderProducao,60);
 }
 document.getElementById('tabs').addEventListener('click',e=>{if(e.target.dataset.v)go(e.target.dataset.v);});
 document.getElementById('toggleDone').addEventListener('click',e=>{showDone=!showDone;e.target.textContent=showDone?'Ocultar concluídos':'Mostrar concluídos';renderPainel();});
 document.getElementById('printSelect').addEventListener('change',drawLabel);
+/* busca do painel (item 4+7) */
+document.getElementById('painelBusca').addEventListener('input',renderPainel);
+/* registro de tempo (item 2) */
+document.getElementById('tlData').addEventListener('change',()=>{const b=document.getElementById('tlBusca');if(b)b.value='';renderTimelog();});
+document.getElementById('tlHoje').addEventListener('click',()=>{document.getElementById('tlData').value=tlHojeStr();document.getElementById('tlBusca').value='';renderTimelog();});
+document.getElementById('tlTodos').addEventListener('click',()=>{document.getElementById('tlData').value='';document.getElementById('tlBusca').value='';renderTimelog();});
+document.getElementById('tlBusca').addEventListener('input',renderTimelog);
+/* produção (item 6) */
+document.getElementById('prodChips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;prodPeriodo=b.dataset.p;document.querySelectorAll('#prodChips .gchip').forEach(x=>x.classList.toggle('on',x===b));renderProducao();});
+document.getElementById('prodBuscaCli').addEventListener('input',renderProducao);
+/* uso do banco (item 5) */
+document.getElementById('reloadDb').addEventListener('click',loadDbUsage);
 
 /* ---------- lançar ---------- */
 function setNextNumero(){const el=document.getElementById('numeroInput');if(!el)return;const nums=PEDIDOS.map(p=>parseInt(p.numero,10)).filter(n=>!isNaN(n));el.value=String((nums.length?Math.max.apply(null,nums):0)+1).padStart(3,'0');}
@@ -881,6 +1076,13 @@ document.getElementById('formPedido').addEventListener('submit',async e=>{
     p_quantidade:f.quantidade.value.trim()||null, p_cores:f.cores.value.trim()||null, p_largura_bobina:f.largura.value.trim()||null});
   btn.disabled=false;
   if(!r.ok){alert('Erro ao criar pedido: '+(r.msg||'')); if((r.msg||'').includes('autoriz'))relogar(); return;}
+  // item 1: grava o prazo (criar_pedido não aceita prazo) via função cirúrgica que só toca o prazo.
+  // Sem o supabase_v6 aplicado, só registra aviso no console — NUNCA quebra a criação nem mexe em outro campo.
+  const prazoVal=f.prazo.value;
+  if(prazoVal && r.pedido && r.pedido.id){
+    const pr=await rpc('pedido_set_prazo',{p_token:currentUser.token,p_id:r.pedido.id,p_prazo:prazoVal});
+    if(!pr||pr.ok!==true){ console.warn('Prazo não gravado — falta aplicar o supabase_v6 (pedido_set_prazo).', pr&&pr.msg); }
+  }
   await loadAll(); await loadClientes(); resetForm();
   const sel=document.getElementById('printSelect');sel.value=r.pedido.id;go('impressao');
 });
