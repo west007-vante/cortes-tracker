@@ -73,7 +73,7 @@
   .pill.pend{background:var(--amber-soft);color:var(--amber)}
   .pill.tog{cursor:pointer;border:1px dashed transparent} .pill.tog:hover{border-color:currentColor;opacity:.9}
   .ord{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:8px;background:var(--bg);font-weight:650;font-size:12px;color:var(--muted)}
-  .ord.hot{background:var(--red-soft);color:var(--red)} .prazo.late{color:var(--red);font-weight:600}
+  .ord.hot{background:var(--red-soft);color:var(--red)} .prazo.late{color:var(--red);font-weight:600} .prazo.pronto{color:var(--green);font-weight:600}
 
   .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 15px;border-radius:10px;font-size:13px;font-weight:550;cursor:pointer;box-shadow:var(--shadow-sm);transition:.15s;display:inline-flex;align-items:center;gap:7px}
   .btn:hover{background:var(--bg)} .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)} .btn.primary:hover{opacity:.9}
@@ -364,8 +364,9 @@
       <div class="head">
         <div><h2>Produção — peças cortadas</h2><div class="sub">Quantas peças saíram e quais clientes mais cortaram</div></div>
         <div class="row-inline" style="gap:8px;flex-wrap:wrap">
-          <div class="gchips" id="prodChips"><button class="gchip on" data-p="dia">Dia</button><button class="gchip" data-p="semana">Semana</button><button class="gchip" data-p="geral">Geral</button></div>
+          <div class="gchips" id="prodChips"><button class="gchip on" data-p="dia">Dia</button><button class="gchip" data-p="semana">Semana</button><button class="gchip" data-p="periodo">Período</button><button class="gchip" data-p="geral">Geral</button></div>
           <input type="date" id="prodData" style="max-width:158px" title="Dia de referência" />
+          <span id="prodRangeWrap" style="display:none;align-items:center;gap:6px"><input type="date" id="prodD1" style="max-width:148px" title="De" /> <span class="ref">até</span> <input type="date" id="prodD2" style="max-width:148px" title="Até" /></span>
         </div>
       </div>
       <div class="stats" id="prodStats" style="padding:18px"></div>
@@ -405,7 +406,9 @@
       <div style="overflow-x:auto"><table id="notifTable"></table></div>
     </div>
     <div class="card">
-      <div class="head"><div><h2>Cancelar bipe</h2><div class="sub">Desfaz uma etapa bipada por engano (e as seguintes)</div></div></div>
+      <div class="head"><div><h2>Cancelar bipe</h2><div class="sub">Desfaz uma etapa bipada por engano (e as seguintes). Concluídos há +7 dias vão pra "Antigos".</div></div>
+        <div class="gchips" id="adminChips"><button class="gchip on" data-v="recentes">Recentes</button><button class="gchip" data-v="antigos">Antigos +7d</button></div>
+      </div>
       <div style="overflow-x:auto"><table id="adminTable"></table></div>
     </div>
   </section>
@@ -426,6 +429,7 @@
       <div class="field"><label>Largura da bobina</label><input type="text" id="e_largura_bobina" /></div>
       <div class="field"><label>Grade</label><input type="text" id="e_grade" /></div>
       <div class="field"><label>Prazo</label><input type="date" id="e_prazo" /></div>
+      <div class="field"><label>Peças cortadas</label><input type="number" id="e_pecas" min="0" step="1" placeholder="—" /></div>
       <div class="field full"><label>Observação</label><textarea id="e_obs"></textarea></div>
       <div class="field full row-inline" style="justify-content:flex-end"><button class="btn ghost" onclick="fecharEditar()">Cancelar</button><button class="btn primary" id="btnSalvarEd" onclick="salvarEdicao()">Salvar alterações</button></div>
     </div>
@@ -608,20 +612,27 @@ const E_CAMPOS=['cliente','codigo','numero','material','qtd_material','ref_molde
 function abrirEditar(id){const p=pedById(id);if(!p)return;editId=id;
   document.getElementById('editCod').textContent='Código atual: '+p.codigo;
   E_CAMPOS.forEach(f=>{const el=document.getElementById('e_'+f);if(el)el.value=p[f]||'';});
+  const pe=document.getElementById('e_pecas'); if(pe)pe.value=(p.pecas==null?'':p.pecas);
   document.getElementById('editModal').style.display='flex';}
 function fecharEditar(){document.getElementById('editModal').style.display='none';editId=null;}
 async function salvarEdicao(){
   if(!editId)return;const btn=document.getElementById('btnSalvarEd');btn.disabled=true;
   const campos={};E_CAMPOS.forEach(f=>{const el=document.getElementById('e_'+f);if(el)campos[f]=el.value.trim();});
   const r=await rpc('editar_pedido',{p_token:currentUser.token,p_id:editId,p_campos:campos});
+  if(!r.ok){btn.disabled=false;alert('Erro: '+(r.msg||'não autorizado'));return;}
+  // alterar quantidade de peças — via set_pecas (pelo código), separado do editar_pedido
+  const p=pedById(editId), peEl=document.getElementById('e_pecas'), peVal=peEl?peEl.value.trim():'';
+  if(p && peVal!=='' && String(p.pecas==null?'':p.pecas)!==peVal){
+    const pr=await rpc('set_pecas',{p_token:currentUser.token,p_codigo:p.codigo,p_pecas:parseInt(peVal,10)});
+    if(!pr||pr.ok!==true)alert('Pedido salvo, mas as peças não gravaram: '+((pr&&pr.msg)||'erro'));
+  }
   btn.disabled=false;
-  if(!r.ok){alert('Erro: '+(r.msg||'não autorizado'));return;}
   fecharEditar(); await loadAll(); if(isGerente())await loadClientes();
 }
 
 /* ---------- helpers ---------- */
 function fmtPrazo(d){if(!d)return '—';const a=String(d).split('-');return a[2]+'/'+a[1]+'/'+a[0];}
-function isLate(p){if(!p.prazo||isFinalizado(p))return false;return new Date(p.prazo+'T23:59:59')<new Date();}
+function isLate(p){if(!p.prazo||isFinalizado(p)||p.nota)return false;return new Date(p.prazo+'T23:59:59')<new Date();} /* nota bipada = pronto, não atrasa */
 function fmtTime(ts){return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function fmtDur(ms){if(ms<=0)return '—';const h=Math.floor(ms/3600e3),m=Math.round((ms%3600e3)/60e3);if(h>=1)return h+'h'+String(m).padStart(2,'0');return m+'min';}
 function pillTog(id,field,onL,offL){const on=pedById(id)[field];return `<span class="pill tog ${on?'sim':'nao'}" onclick="toggleAdminField('${id}','${field}')">${on?onL:offL}</span>`;}
@@ -655,7 +666,7 @@ function renderPainel(){
     const del=ger?`<td style="white-space:nowrap"><button class="btn sm" onclick="abrirEditar('${p.id}')" title="Editar pedido">✎</button> <button class="btn danger sm" onclick="excluirPedido('${p.id}')" title="Apagar pedido">✕</button></td>`:(canPainel()?'<td></td>':'');
     body+=`<tr style="${fin?'opacity:.6':''}">
       <td>${ord}</td><td class="cli">${esc(p.cliente)||'—'}</td><td>${esc(p.numero)||'<span class="ref">—</span>'}</td>
-      <td class="ref">${esc(p.ref)||'—'}</td><td class="prazo ${isLate(p)?'late':''}">${fmtPrazo(p.prazo)}</td>
+      <td class="ref">${esc(p.ref)||'—'}</td><td class="prazo ${p.nota?'pronto':(isLate(p)?'late':'')}">${fmtPrazo(p.prazo)}${p.nota&&p.prazo?' ✓':''}</td>
       <td>${st('risco')}</td><td>${st('enfesto')}</td><td>${st('corte')}</td><td>${st('nota')}</td>
       <td>${pg}</td><td>${pillTog(p.id,'retirada','Sim','Não')}</td>
       <td class="code">${esc(p.codigo)}</td>${del}</tr>`;
@@ -663,6 +674,7 @@ function renderPainel(){
   t.innerHTML=`<thead><tr><th>Ord.</th><th>Cliente</th><th>Nº</th><th>REF</th><th>Prazo</th><th>Risco</th><th>Enfesto</th><th>Corte</th><th>Nota</th><th>Pgto</th><th>Retirada</th><th>Código</th>${ger?'<th></th>':(canPainel()?'<th></th>':'')}</tr></thead><tbody>${body}</tbody>`;
 }
 function tlHojeStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function tlHojeStr2(offsetDias){const d=new Date(Date.now()+(offsetDias||0)*864e5);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function renderTimelog(){
   const el=document.getElementById('timelog');
   const ev={};EVENTOS.forEach(e=>{const m=ev[e.pedido_id]=ev[e.pedido_id]||{};if(m[e.stage]==null||new Date(e.ts)<new Date(m[e.stage]))m[e.stage]=e.ts;});
@@ -824,15 +836,25 @@ function renderUsers(){
 async function atribuir(id){const sel=document.getElementById('sel_'+id);const r=await rpc('gerente_atribuir',{p_token:currentUser.token,p_user_id:id,p_papel:sel.value,p_status:'ativo'});if(!r.ok){alert('Erro: '+(r.msg||''));return;}loadUsers();}
 async function bloquear(id){const r=await rpc('gerente_atribuir',{p_token:currentUser.token,p_user_id:id,p_papel:null,p_status:'bloqueado'});if(!r.ok){alert('Erro: '+(r.msg||''));return;}loadUsers();}
 async function excluirUsuario(id){if(!confirm('Excluir este usuário?'))return;const r=await rpc('gerente_excluir_usuario',{p_token:currentUser.token,p_user_id:id});if(!r.ok){alert('Erro: '+(r.msg||''));return;}loadUsers();}
+let adminView='recentes';
 function renderAdmin(){
-  const rows=PEDIDOS.filter(p=>p.risco||p.enfesto||p.corte).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const sete=Date.now()-7*864e5;
+  const comBipe=PEDIDOS.filter(p=>p.risco||p.enfesto||p.corte);
+  // recentes = ativos (qualquer idade) OU criados nos últimos 7 dias; antigos = concluídos há +7 dias
+  const recentes=comBipe.filter(p=>!isFinalizado(p)||new Date(p.created_at).getTime()>=sete);
+  const antigos=comBipe.filter(p=>isFinalizado(p)&&new Date(p.created_at).getTime()<sete);
+  const cR=document.querySelector('#adminChips [data-v="recentes"]'), cA=document.querySelector('#adminChips [data-v="antigos"]');
+  if(cR)cR.textContent='Recentes ('+recentes.length+')';
+  if(cA)cA.textContent='Antigos +7d ('+antigos.length+')';
+  const rows=(adminView==='antigos'?antigos:recentes).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const t=document.getElementById('adminTable');
-  if(!rows.length){t.innerHTML='<tbody><tr><td><div class="empty">Nenhum bipe pra cancelar.</div></td></tr></tbody>';return;}
+  if(!rows.length){t.innerHTML='<tbody><tr><td><div class="empty">'+(adminView==='antigos'?'Nenhum pedido antigo (concluído há +7 dias).':'Nenhum bipe recente pra cancelar.')+'</div></td></tr></tbody>';return;}
   let body='';
   rows.forEach(p=>{const btns=STAGES.filter(s=>p[s]).map(s=>`<button class="btn danger sm" onclick="cancelBipe('${p.id}','${s}')">✕ ${STAGE_LABEL[s]}</button>`).join(' ')||'<span style="color:var(--muted)">—</span>';
-    body+=`<tr><td class="cli">${esc(p.cliente)}</td><td>${esc(p.numero)||'—'}</td><td class="code">${esc(p.codigo)}</td><td>${btns}</td></tr>`;});
-  t.innerHTML=`<thead><tr><th>Cliente</th><th>Nº</th><th>Código</th><th>Cancelar etapa (cascata)</th></tr></thead><tbody>${body}</tbody>`;
+    body+=`<tr><td class="cli">${esc(p.cliente)}</td><td>${esc(p.numero)||'—'}</td><td class="code">${esc(p.codigo)}</td><td class="ref">${new Date(p.created_at).toLocaleDateString('pt-BR')}</td><td>${btns}</td></tr>`;});
+  t.innerHTML=`<thead><tr><th>Cliente</th><th>Nº</th><th>Código</th><th>Data</th><th>Cancelar etapa (cascata)</th></tr></thead><tbody>${body}</tbody>`;
 }
+document.getElementById('adminChips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;adminView=b.dataset.v;document.querySelectorAll('#adminChips .gchip').forEach(x=>x.classList.toggle('on',x===b));renderAdmin();});
 document.getElementById('reloadUsers').addEventListener('click',loadUsers);
 document.getElementById('cliSearch').addEventListener('input',renderClientesPanel);
 document.getElementById('reloadNotif').addEventListener('click',loadNotificacoes);
@@ -868,6 +890,13 @@ function prodRange(){
   const sel=prodDataStr(), base=new Date(sel+'T12:00:00');
   if(prodPeriodo==='dia'){const f=new Date(base.getFullYear(),base.getMonth(),base.getDate()).getTime();return {f0:f,t0:f+864e5-1,nDias:1,label:'Dia '+fmtPrazo(sel)};}
   if(prodPeriodo==='semana'){const t=new Date(base.getFullYear(),base.getMonth(),base.getDate()).getTime();return {f0:t-6*864e5,t0:t+864e5-1,nDias:7,label:'Semana até '+fmtPrazo(sel)};}
+  if(prodPeriodo==='periodo'){
+    let a=(document.getElementById('prodD1')||{}).value, b=(document.getElementById('prodD2')||{}).value;
+    if(!a||!b)return {f0:0,t0:-1,nDias:null,label:'Escolha as duas datas (de / até)'};
+    if(b<a){const tmp=a;a=b;b=tmp;} // inverte se veio trocado
+    const f0=new Date(a+'T00:00:00').getTime(), t0=new Date(b+'T23:59:59').getTime();
+    return {f0:f0,t0:t0,nDias:Math.round((t0-f0)/864e5)+1,label:fmtPrazo(a)+' até '+fmtPrazo(b)};
+  }
   return {f0:0,t0:Date.now()+864e5,nDias:null,label:'Geral (tudo)'};
 }
 function pecasRegistros(){
@@ -1100,9 +1129,16 @@ document.getElementById('tlHoje').addEventListener('click',()=>{document.getElem
 document.getElementById('tlTodos').addEventListener('click',()=>{document.getElementById('tlData').value='';document.getElementById('tlBusca').value='';renderTimelog();});
 document.getElementById('tlBusca').addEventListener('input',renderTimelog);
 /* produção (item 6) */
-document.getElementById('prodChips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;prodPeriodo=b.dataset.p;document.querySelectorAll('#prodChips .gchip').forEach(x=>x.classList.toggle('on',x===b));document.getElementById('prodData').style.visibility=(prodPeriodo==='geral')?'hidden':'visible';renderProducao();});
+document.getElementById('prodChips').addEventListener('click',e=>{const b=e.target.closest('.gchip');if(!b)return;prodPeriodo=b.dataset.p;document.querySelectorAll('#prodChips .gchip').forEach(x=>x.classList.toggle('on',x===b));
+  const isP=prodPeriodo==='periodo', isG=prodPeriodo==='geral';
+  document.getElementById('prodData').style.display=(isP||isG)?'none':'';
+  document.getElementById('prodRangeWrap').style.display=isP?'inline-flex':'none';
+  if(isP){const d1=document.getElementById('prodD1'),d2=document.getElementById('prodD2');if(d1&&!d1.value)d1.value=tlHojeStr2(-6);if(d2&&!d2.value)d2.value=tlHojeStr();}
+  renderProducao();});
 document.getElementById('prodBuscaCli').addEventListener('input',renderProducao);
 document.getElementById('prodData').addEventListener('change',renderProducao);
+document.getElementById('prodD1').addEventListener('change',renderProducao);
+document.getElementById('prodD2').addEventListener('change',renderProducao);
 /* uso do banco (item 5) */
 document.getElementById('reloadDb').addEventListener('click',loadDbUsage);
 
