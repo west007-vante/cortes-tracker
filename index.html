@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <title>Painel de Cortes — GF Cortes</title>
-<!-- v3-seg+tema -->
+<!-- v8: quadro clicavel + producao enxuta -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -188,6 +188,42 @@
     body.print-folha #folhaArea{position:absolute;left:0;top:0;width:100%}
     .label{border:none}
   }
+
+  /* ===== v8: quadro clicável + produção enxuta ===== */
+  .tk.click{cursor:pointer;transition:.15s}
+  .tk.click:hover{border-color:var(--accent);box-shadow:0 2px 10px var(--accent-soft);transform:translateY(-1px)}
+  .tk .tkfoot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;gap:8px}
+  .tk .prazotag{font-size:11px;color:var(--muted)}
+  .tk .prazotag.late{color:var(--red);font-weight:600}
+
+  .ovl{display:none;position:fixed;inset:0;background:rgba(8,12,20,.55);z-index:110;align-items:center;justify-content:center;padding:20px}
+  .ovl.open{display:flex}
+  .ficha{max-width:660px;width:100%;max-height:92vh;overflow:auto}
+  .fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:0;border-top:1px solid var(--line)}
+  .fitem{padding:11px 18px;border-bottom:1px solid var(--line)}
+  .fitem:nth-child(odd){border-right:1px solid var(--line)}
+  .fitem.full{grid-column:1/-1;border-right:0}
+  .fitem .fk{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px}
+  .fitem .fv{font-size:13.5px;font-weight:550}
+  .fitem .fv.vazio{color:var(--muted);font-weight:400}
+  .etapas{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .etp{display:flex;flex-direction:column;gap:3px;background:var(--bg);border-radius:10px;padding:8px 12px;min-width:96px}
+  .etp .en{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .etp .ev{font-size:12.5px;font-weight:600}
+  .etp.ok .ev{color:var(--green)} .etp.no .ev{color:var(--muted);font-weight:400}
+  .fichafoot{display:flex;justify-content:space-between;gap:10px;padding:14px 18px;flex-wrap:wrap}
+  @media(max-width:640px){.fgrid{grid-template-columns:1fr}.fitem:nth-child(odd){border-right:0}}
+
+  .barrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line)}
+  .barrow:last-child{border-bottom:0}
+  .barrow .bn{flex:0 0 34%;font-weight:550;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .barrow .bt{flex:1;background:var(--bg);border-radius:999px;height:9px;overflow:hidden}
+  .barrow .bf{height:100%;background:var(--accent);border-radius:999px}
+  .barrow .bv{flex:0 0 auto;font-size:12.5px;font-weight:620;color:var(--ink)}
+
+  .maisdetalhe{border:0;background:transparent;color:var(--accent);font-size:12.5px;font-weight:550;cursor:pointer;padding:10px 18px}
+  .maisdetalhe:hover{text-decoration:underline}
+
 </style>
 </head>
 <body>
@@ -1204,6 +1240,206 @@ applyTheme();
   ca.addEventListener('input',e=>{THEME.accent=e.target.value;applyTheme();saveTheme();refresh();});
   refresh();
 })();
+
+/* =====================================================================
+   v8 — parte 1 de 2 (só o que roda com o banco COMO ELE ESTÁ HOJE)
+   ✔ 2. Quadro clicável: abre a ficha do pedido pra analisar / alterar / excluir
+   ✔ 4. Área de produção enxugada (5 blocos → 2)
+
+   Fica de fora até o SQL rodar (senão para a operação):
+   ✗ 1. aba de Cadastros  — depende de criar_cliente / arquivar_cliente
+   ✗ 3. faturamento       — depende da coluna `valor` e de set_valor
+   Usa só RPCs que JÁ existem: editar_pedido, excluir_pedido.
+   ===================================================================== */
+
+const NUM   = v => (v==null||isNaN(v)) ? '—' : Number(v).toLocaleString('pt-BR');
+const dataBR = s => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
+const horaBR = s => s ? new Date(s).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+
+/* pedidos.risco/enfesto/corte/nota sao BOOLEAN no banco (nao guardam data).
+   O instante de cada bipe vive em eventos.ts — pega o PRIMEIRO evento da etapa. */
+function tsEtapa(pedidoId, stage){
+  let menor=null;
+  (EVENTOS||[]).forEach(e=>{
+    if(e.pedido_id!==pedidoId || e.stage!==stage) return;
+    const t=new Date(e.ts).getTime();
+    if(menor==null || t<menor) menor=t;
+  });
+  return menor;
+}
+
+/* ---------------------------------------------------------------
+   2. QUADRO CLICÁVEL
+   --------------------------------------------------------------- */
+(function(){
+  const ovl=document.createElement('div');
+  ovl.className='ovl'; ovl.id='fichaOvl';
+  ovl.innerHTML='<div class="card ficha" id="fichaBox"></div>';
+  ovl.addEventListener('click',e=>{if(e.target===ovl)fecharFicha();});
+  document.body.appendChild(ovl);
+})();
+
+renderBoard = function(){
+  const cols=[['risco','Risco','c-risco'],['enfesto','Enfesto','c-enf'],['corte','Corte','c-cor'],['nota','Nota','c-nota'],['pronto','Pronto','c-pr']];
+  document.getElementById('board').innerHTML=cols.map(([key,label,cls])=>{
+    const items=openPedidos().filter(p=>etapaOf(p)===key);
+    const cards=items.map(p=>{
+      const atrasado = p.prazo && !p.nota && new Date(p.prazo) < new Date(new Date().toDateString());
+      return `<div class="tk click" onclick="abrirFicha('${p.id}')" title="Clique pra abrir o pedido">
+        <div class="cli">${esc(p.cliente)}</div>
+        <div class="meta"><span>${esc(p.ref)||'—'}</span><span class="code">${esc(p.numero)||esc(p.codigo)}</span></div>
+        <div class="tkfoot">
+          <span class="prazotag ${atrasado?'late':''}">${p.prazo?('prazo '+dataBR(p.prazo)):'sem prazo'}</span>
+          ${p.pecas!=null?`<span class="ref" style="font-size:11px">${NUM(p.pecas)} pç</span>`:''}
+        </div></div>`;
+    }).join('')||'<div style="color:var(--muted);font-size:12px;padding:4px">vazio</div>';
+    return `<div class="col ${cls}"><div class="colhead"><span>${label}</span><span class="badge">${items.length}</span></div><div class="body">${cards}</div></div>`;
+  }).join('');
+}
+
+function abrirFicha(id){
+  const p=PEDIDOS.find(x=>x.id===id); if(!p)return;
+  const ger=isGerente();
+  const item=(k,v,full)=>`<div class="fitem${full?' full':''}"><div class="fk">${k}</div><div class="fv${v?'':' vazio'}">${v||'não informado'}</div></div>`;
+  /* feito = boolean; a data (se houver evento) entra como detalhe */
+  const etapa=(k,feito,stage)=>{
+    const t = feito ? tsEtapa(p.id,stage) : null;
+    return `<div class="etp ${feito?'ok':'no'}"><div class="en">${k}</div><div class="ev">${feito?(t?horaBR(t):'✓ feito'):'—'}</div></div>`;
+  };
+
+  document.getElementById('fichaBox').innerHTML=`
+    <div class="head">
+      <div><h2>${esc(p.cliente)}</h2>
+        <div class="sub">Pedido nº ${esc(p.numero)||'—'} · <span class="code">${esc(p.codigo)}</span></div></div>
+      <button class="btn ghost" onclick="fecharFicha()">Fechar</button>
+    </div>
+    <div class="etapas">
+      ${etapa('Risco',p.risco,'risco')}${etapa('Enfesto',p.enfesto,'enfesto')}${etapa('Corte',p.corte,'corte')}${etapa('Nota',p.nota,'nota')}
+      <div class="etp ${p.retirada?'ok':'no'}"><div class="en">Retirada</div><div class="ev">${p.retirada?'✓ retirado':'—'}</div></div>
+    </div>
+    <div class="fgrid">
+      ${item('Prazo', p.prazo?dataBR(p.prazo):'')}
+      ${item('Lançado em', dataBR(p.created_at))}
+      ${item('Material', esc(p.material))}
+      ${item('Qtd. de material', esc(p.qtd_material))}
+      ${item('Ref. do molde', esc(p.ref_molde))}
+      ${item('Grade', esc(p.grade))}
+      ${item('Quantidade', esc(p.quantidade))}
+      ${item('Cores', esc(p.cores))}
+      ${item('Largura da bobina', esc(p.largura_bobina))}
+      ${item('Pagamento', p.pagamento?'✓ pago':'pendente')}
+      ${item('Peças cortadas', p.pecas!=null?NUM(p.pecas)+' peças':'')}
+      ${item('Observação', esc(p.obs), true)}
+    </div>
+    <div class="fichafoot">
+      <div>${ger?`<button class="btn danger" onclick="excluirDaFicha('${p.id}')">🗑 Excluir pedido</button>`:''}</div>
+      <div class="row-inline">
+        <button class="btn" onclick="imprimirDaFicha('${p.id}')">🖨 Imprimir</button>
+        ${ger?`<button class="btn primary" onclick="editarDaFicha('${p.id}')">✎ Alterar</button>`:''}
+      </div>
+    </div>`;
+  document.getElementById('fichaOvl').classList.add('open');
+}
+function fecharFicha(){ const o=document.getElementById('fichaOvl'); if(o)o.classList.remove('open'); }
+
+function editarDaFicha(id){ fecharFicha(); if(typeof abrirEditar==='function') abrirEditar(id); }
+function imprimirDaFicha(id){
+  const p=PEDIDOS.find(x=>x.id===id); if(!p)return;
+  fecharFicha(); go('impressao');
+  const sel=document.getElementById('printSelect');
+  if(sel){ sel.value=p.id; if(typeof drawLabel==='function') drawLabel(); }
+}
+async function excluirDaFicha(id){
+  const p=PEDIDOS.find(x=>x.id===id); if(!p)return;
+  if(!confirm(`Excluir o pedido de ${p.cliente} (nº ${p.numero||p.codigo})?\n\nIsso apaga o pedido e o histórico de bipes dele.\nNão dá pra desfazer.`))return;
+  const r=await rpc('excluir_pedido',{p_token:currentUser.token,p_id:id});
+  if(!r||!r.ok){ alert((r&&r.msg)||'Não consegui excluir'); return; }
+  fecharFicha(); await loadAll();
+}
+
+/* ---------------------------------------------------------------
+   4. PRODUÇÃO ENXUTA
+   --------------------------------------------------------------- */
+let prodVerParados=false;
+
+renderProducao = function(){
+  const view=document.getElementById('v-producao'); if(!view)return;
+  /* pecasRegistros() devolve {pecas, ts, cliente, cid} — o corte é por ts */
+  const regs=(typeof pecasRegistros==='function')?pecasRegistros():[];
+  const r=(typeof prodRange==='function')?prodRange():null;
+  const dentro = r ? regs.filter(x=> x.ts>=r.f0 && x.ts<=r.t0) : regs;
+
+  const totalPecas=dentro.reduce((s,x)=>s+Number(x.pecas||0),0);
+  /* no modo "Geral" o nDias vem null: a média cai pros dias que tiveram registro */
+  let nDias;
+  if(r && r.nDias) nDias=Math.max(1,r.nDias);
+  else { const dias=new Set(dentro.map(x=>new Date(x.ts).toDateString())); nDias=Math.max(1,dias.size); }
+
+  const porCli={};
+  dentro.forEach(x=>{porCli[x.cliente]=(porCli[x.cliente]||0)+Number(x.pecas||0);});
+  const rank=Object.entries(porCli).sort((a,b)=>b[1]-a[1]);
+  const teto=rank.length?rank[0][1]:1;
+
+  const parados=[];
+  (CLIENTES||[]).forEach(c=>{
+    const peds=PEDIDOS.filter(p=>p.cliente_id===c.id);
+    if(!peds.length)return;
+    const ult=Math.max(...peds.map(p=>new Date(p.created_at).getTime()));
+    const dd=Math.floor((Date.now()-ult)/864e5);
+    if(dd>=30) parados.push({nome:c.nome,dias:dd,tel:c.telefone});
+  });
+  parados.sort((a,b)=>b.dias-a.dias);
+
+  const perAtual=(typeof prodPeriodo!=='undefined')?prodPeriodo:'dia';
+  view.innerHTML=`
+    <div class="card" style="margin-bottom:18px">
+      <div class="head">
+        <div><h2>Produção — peças cortadas</h2><div class="sub">Conta pela bipagem da Nota. ${dentro.length} pedido(s) no período.</div></div>
+        <div class="row-inline">
+          <button class="btn sm" data-prod="dia">Dia</button>
+          <button class="btn sm" data-prod="semana">Semana</button>
+          <button class="btn sm" data-prod="geral">Geral</button>
+          <input type="date" id="prodData" style="max-width:150px" />
+        </div>
+      </div>
+      <div class="stats" style="margin:0;padding:18px;border-bottom:1px solid var(--line)">
+        <div class="stat"><div class="k">Peças no período</div><div class="v">${NUM(totalPecas)}</div></div>
+        <div class="stat"><div class="k">Média por dia</div><div class="v">${NUM(Math.round(totalPecas/nDias))}</div></div>
+        <div class="stat"><div class="k">Clientes atendidos</div><div class="v">${rank.length}</div></div>
+      </div>
+      <div style="padding:4px 0">
+        ${rank.length ? rank.map(([n,v])=>`<div class="barrow">
+            <div class="bn" title="${esc(n)}">${esc(n)}</div>
+            <div class="bt"><div class="bf" style="width:${Math.max(4,(v/teto)*100)}%"></div></div>
+            <div class="bv">${NUM(v)} pç <span class="ref" style="font-weight:400">(${totalPecas?Math.round(v/totalPecas*100):0}%)</span></div>
+          </div>`).join('')
+          : '<div class="empty">Nenhuma peça registrada no período.</div>'}
+      </div>
+    </div>
+    <div class="card">
+      <button class="maisdetalhe" onclick="prodVerParados=!prodVerParados;renderProducao()">
+        ${prodVerParados?'▾':'▸'} Clientes parados há 30+ dias (${parados.length})
+      </button>
+      ${prodVerParados ? (parados.length
+        ? `<table><thead><tr><th>Cliente</th><th>Sem pedido há</th><th>Telefone</th></tr></thead><tbody>
+           ${parados.map(c=>`<tr><td class="cli">${esc(c.nome)}</td><td>${c.dias} dias</td><td class="ref">${esc(c.tel)||'—'}</td></tr>`).join('')}
+           </tbody></table>`
+        : '<div class="empty">Nenhum cliente parado. 👍</div>') : ''}
+    </div>`;
+
+  /* o date picker é recriado junto com a view: repõe o valor e religa o onchange */
+  const dt=document.getElementById('prodData');
+  if(dt){
+    if(typeof prodDataStr==='function' && !dt.value) dt.value=prodDataStr();
+    dt.onchange=()=>renderProducao();
+  }
+  document.querySelectorAll('[data-prod]').forEach(b=>{
+    b.classList.toggle('primary', b.dataset.prod===perAtual);
+    b.onclick=()=>{ if(typeof prodPeriodo!=='undefined'){ prodPeriodo=b.dataset.prod; } renderProducao(); };
+  });
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharFicha(); });
 
 boot();
 </script>
