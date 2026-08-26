@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <title>Painel de Cortes — GF Cortes</title>
-<!-- v8: quadro clicavel + producao enxuta -->
+<!-- v8 parte 2: cadastros + faturamento -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -223,6 +223,23 @@
 
   .maisdetalhe{border:0;background:transparent;color:var(--accent);font-size:12.5px;font-weight:550;cursor:pointer;padding:10px 18px}
   .maisdetalhe:hover{text-decoration:underline}
+
+
+  /* ===== v8 parte 2: cadastros + faturamento ===== */
+  .clihead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .clihead input[type=text]{max-width:290px}
+  td.acts{white-space:nowrap;text-align:right}
+  td.acts .btn{margin-left:6px}
+  .arqrow{opacity:.5}
+  .arqrow td.cli::after{content:' · arquivado';color:var(--muted);font-weight:400;font-size:11.5px}
+
+  .notafields{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:420px;margin:14px auto 4px;text-align:left}
+  .notafields label{display:block;font-size:12.5px;color:var(--muted);font-weight:550;margin-bottom:6px}
+  .notafields .req{color:var(--red)}
+  .fatgrid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start}
+  @media(max-width:900px){.fatgrid{grid-template-columns:1fr}.notafields{grid-template-columns:1fr}}
+  .money{font-variant-numeric:tabular-nums}
+  .stat .v.money{font-size:23px}
 
 </style>
 </head>
@@ -1440,6 +1457,383 @@ renderProducao = function(){
 }
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharFicha(); });
+
+/* =====================================================================
+   v8 — parte 2 (depois do supabase_v8_cadastros_faturamento.sql)
+   ✔ 1. aba Cadastros (criar / editar / arquivar / restaurar)
+        + "Lançar pedido" passa a só ESCOLHER cliente já cadastrado
+   ✔ 3. Faturamento: valor na bipagem da Nota (junto com peças) + dashboard
+
+   ⚠️ Schema real: pedidos.nota é BOOLEAN. A data do faturamento vem de
+   eventos.ts onde stage='nota' — nunca de pedidos.nota.
+   ===================================================================== */
+
+const BRL = v => (v==null||isNaN(v)) ? '—' : Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
+/* ---------- abas novas ---------- */
+TABS_BY_ROLE.gerente = ['painel','board','lancar','clientes','impressao','estacoes','gargalo','producao','faturamento','admin'];
+TABS_BY_ROLE.risco   = ['painel','board','lancar','clientes','impressao','estacoes','gargalo','producao'];
+TAB_LABEL.clientes    = 'Cadastros';
+TAB_LABEL.faturamento = 'Faturamento';
+
+/* ---------- views novas ---------- */
+(function(){
+  const app=document.querySelector('.app')||document.body;
+  const mk=(id,html)=>{const s=document.createElement('section');s.className='view';s.id='v-'+id;s.innerHTML=html;app.appendChild(s);};
+
+  mk('clientes',`
+    <div class="card">
+      <div class="head">
+        <div><h2>Cadastros de clientes</h2><div class="sub">O cadastro nasce aqui. No "Lançar pedido" você só escolhe um que já existe.</div></div>
+        <div class="clihead">
+          <input type="text" id="cadBusca" placeholder="🔎 Buscar por nome, CPF/CNPJ ou telefone" />
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)">
+            <input type="checkbox" id="cadVerArq" style="width:auto" /> ver arquivados
+          </label>
+          <button class="btn primary" onclick="abrirCadastro()">+ Novo cliente</button>
+        </div>
+      </div>
+      <div id="cadTabela"></div>
+    </div>`);
+
+  mk('faturamento',`
+    <div class="card" style="margin-bottom:18px">
+      <div class="head">
+        <div><h2>Faturamento</h2><div class="sub">Vem do valor lançado na bipagem da Nota. Pedido sem valor não entra na conta.</div></div>
+        <div class="row-inline">
+          <button class="btn sm" data-fat="hoje">Hoje</button>
+          <button class="btn sm" data-fat="7">7 dias</button>
+          <button class="btn sm" data-fat="30">30 dias</button>
+          <button class="btn sm" data-fat="tudo">Tudo</button>
+        </div>
+      </div>
+      <div class="stats" style="margin:0;padding:18px;border-bottom:1px solid var(--line)" id="fatCards"></div>
+      <div class="fatgrid" style="padding:18px">
+        <div>
+          <div style="font-weight:620;font-size:14px;margin-bottom:10px">Faturamento por dia</div>
+          <div style="height:230px"><canvas id="fatChart"></canvas></div>
+        </div>
+        <div>
+          <div style="font-weight:620;font-size:14px;margin-bottom:10px">Por cliente no período</div>
+          <div id="fatClientes" style="border:1px solid var(--line);border-radius:12px;overflow:hidden"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head"><div><h2>Pedidos faturados</h2><div class="sub" id="fatSub"></div></div></div>
+      <div id="fatTabela"></div>
+    </div>`);
+
+  const cad=document.createElement('div');
+  cad.className='ovl'; cad.id='cadOvl';
+  cad.innerHTML=`<div class="card" style="max-width:560px;width:100%">
+    <div class="head"><div><h2 id="cadTitulo">Novo cliente</h2><div class="sub" id="cadSub">Preencha os dados do cliente</div></div>
+      <button class="btn ghost" onclick="fecharCadastro()">Fechar</button></div>
+    <div class="form">
+      <div class="field full"><label>Nome / Razão social <span style="color:var(--red)">*</span></label><input type="text" id="cad_nome" /></div>
+      <div class="field"><label>CPF / CNPJ</label><input type="text" id="cad_cpf" /></div>
+      <div class="field"><label>Telefone</label><input type="text" id="cad_tel" placeholder="(11) 90000-0000" /></div>
+      <div class="field full"><label>Endereço</label><input type="text" id="cad_end" /></div>
+      <div class="field full" style="flex-direction:row;justify-content:flex-end;gap:10px">
+        <button class="btn" onclick="fecharCadastro()">Cancelar</button>
+        <button class="btn primary" id="cadSalvar">Salvar cliente</button>
+      </div>
+    </div></div>`;
+  cad.addEventListener('click',e=>{if(e.target===cad)fecharCadastro();});
+  document.body.appendChild(cad);
+})();
+
+/* ---------- clientes agora vêm com o campo `arquivado` ---------- */
+loadClientes = function(){
+  return rpc('listar_clientes_v8',{p_token:currentUser.token}).then(r=>{
+    if(r&&r.ok){ CLIENTES=r.clientes||[]; if(typeof renderClientesDatalist==='function') renderClientesDatalist(); }
+  });
+}
+
+/* =====================================================================
+   1. CADASTROS
+   ===================================================================== */
+let cadEditandoId=null;
+const clientesAtivos = () => (CLIENTES||[]).filter(c=>!c.arquivado);
+
+function renderCadastros(){
+  const el=document.getElementById('cadTabela'); if(!el)return;
+  const q=((document.getElementById('cadBusca')||{}).value||'').trim().toLowerCase();
+  const verArq=!!(document.getElementById('cadVerArq')||{}).checked;
+  let lista=(CLIENTES||[]).slice();
+  if(!verArq) lista=lista.filter(c=>!c.arquivado);
+  if(q) lista=lista.filter(c=>
+    (c.nome||'').toLowerCase().includes(q) ||
+    (c.cpf_cnpj||'').toLowerCase().includes(q) ||
+    (c.telefone||'').toLowerCase().includes(q));
+  lista.sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
+
+  if(!lista.length){
+    el.innerHTML='<div class="empty"><div class="big">Nenhum cliente'+(q?' pra essa busca':'')+'</div>Cadastre pelo botão "+ Novo cliente".</div>';
+    return;
+  }
+  const ger=isGerente();
+  el.innerHTML=`<table><thead><tr>
+      <th>Cliente</th><th>CPF / CNPJ</th><th>Telefone</th><th>Pedidos</th><th style="text-align:right">Ações</th>
+    </tr></thead><tbody>${lista.map(c=>{
+    const peds=PEDIDOS.filter(p=>p.cliente_id===c.id);
+    const abertos=peds.filter(p=>!p.retirada).length;
+    return `<tr class="${c.arquivado?'arqrow':''}">
+      <td class="cli">${esc(c.nome)}</td>
+      <td class="ref">${esc(c.cpf_cnpj)||'—'}</td>
+      <td class="ref">${esc(c.telefone)||'—'}</td>
+      <td>${peds.length}${abertos?` <span class="pill pend">${abertos} em aberto</span>`:''}</td>
+      <td class="acts">
+        ${ger?`<button class="btn sm" onclick="abrirCadastro('${c.id}')">✎ Editar</button>`:''}
+        ${ger?(c.arquivado
+            ? `<button class="btn sm" onclick="restaurarCliente('${c.id}')">↩ Restaurar</button>`
+            : `<button class="btn sm danger" onclick="arquivarCliente('${c.id}')" title="Some da lista, mas o histórico fica">🗄 Arquivar</button>`):''}
+      </td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+function abrirCadastro(id){
+  cadEditandoId=id||null;
+  const c = id ? (CLIENTES||[]).find(x=>x.id===id) : null;
+  document.getElementById('cadTitulo').textContent = c ? 'Editar cliente' : 'Novo cliente';
+  document.getElementById('cadSub').textContent    = c ? c.nome : 'Preencha os dados do cliente';
+  document.getElementById('cad_nome').value = c?c.nome:'';
+  document.getElementById('cad_cpf').value  = c?(c.cpf_cnpj||''):'';
+  document.getElementById('cad_tel').value  = c?(c.telefone||''):'';
+  document.getElementById('cad_end').value  = c?(c.endereco||''):'';
+  document.getElementById('cadOvl').classList.add('open');
+  setTimeout(()=>document.getElementById('cad_nome').focus(),40);
+}
+function fecharCadastro(){ document.getElementById('cadOvl').classList.remove('open'); cadEditandoId=null; }
+
+async function salvarCadastro(){
+  const nome=document.getElementById('cad_nome').value.trim();
+  if(!nome){ alert('O nome do cliente é obrigatório.'); return; }
+  const base={ p_token:currentUser.token, p_nome:nome,
+    p_cpf:document.getElementById('cad_cpf').value.trim(),
+    p_telefone:document.getElementById('cad_tel').value.trim(),
+    p_endereco:document.getElementById('cad_end').value.trim() };
+  const btn=document.getElementById('cadSalvar'); btn.disabled=true;
+  const r = cadEditandoId
+    ? await rpc('editar_cliente',{...base, p_id:cadEditandoId})
+    : await rpc('criar_cliente', base);
+  btn.disabled=false;
+  if(!r||!r.ok){ alert((r&&r.msg)||'Não consegui salvar'); if(((r&&r.msg)||'').includes('autoriz'))relogar(); return; }
+  fecharCadastro(); await loadClientes(); renderCadastros(); preencherSelectClientes();
+}
+
+async function arquivarCliente(id){
+  const c=(CLIENTES||[]).find(x=>x.id===id);
+  if(!confirm(`Arquivar "${c?c.nome:''}"?\n\nEle some da lista e não aparece mais pra novos pedidos.\nO histórico de pedidos continua guardado e dá pra restaurar depois.`))return;
+  const r=await rpc('arquivar_cliente',{p_token:currentUser.token,p_id:id});
+  if(!r||!r.ok){ alert((r&&r.msg)||'Não consegui arquivar'); return; }
+  await loadClientes(); renderCadastros(); preencherSelectClientes();
+}
+async function restaurarCliente(id){
+  const r=await rpc('restaurar_cliente',{p_token:currentUser.token,p_id:id});
+  if(!r||!r.ok){ alert((r&&r.msg)||'Não consegui restaurar'); return; }
+  await loadClientes(); renderCadastros(); preencherSelectClientes();
+}
+
+/* ---------- "Lançar pedido": só escolhe cliente já cadastrado ---------- */
+function preencherSelectClientes(){
+  const sel=document.getElementById('clienteSelect'); if(!sel)return;
+  const atual=sel.value;
+  const lista=clientesAtivos().slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
+  /* o value carrega o NOME e o id vai em data-id: o submit original lê
+     f.cliente.value como nome e o id pela global selectedClienteId. */
+  sel.innerHTML='<option value="">— escolha um cliente cadastrado —</option>'+
+    lista.map(c=>`<option value="${esc(c.nome)}" data-id="${c.id}">${esc(c.nome)}</option>`).join('');
+  if(atual) sel.value=atual;
+  sel.onchange=()=>{
+    const op=sel.options[sel.selectedIndex];
+    selectedClienteId = (op && op.dataset.id) ? op.dataset.id : null;
+  };
+  sel.onchange();
+}
+
+(function converterFormLancar(){
+  const inp=document.getElementById('clienteInput'); if(!inp)return;
+  const campo=inp.closest('.field');
+  campo.innerHTML=`<label>Cliente <span style="color:var(--red)">*</span></label>
+    <select id="clienteSelect" name="cliente" required></select>
+    <span class="hint">Não achou? Cadastre na aba <strong>Cadastros</strong> — aqui só se escolhe quem já existe.</span>`;
+  /* CPF/telefone/endereço somem da TELA (vivem no cadastro), mas os inputs
+     continuam no form como hidden: o submit original ainda lê f.cpf.value etc. */
+  ['cpfInput','telInput','endInput'].forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    el.type='hidden'; el.value='';
+    const c=el.closest('.field'); if(c) c.style.display='none';
+  });
+  const dl=document.getElementById('clientesList'); if(dl) dl.remove();
+})();
+
+/* =====================================================================
+   3. FATURAMENTO
+   ===================================================================== */
+const _renderBipOriginal = renderBip;
+renderBip = function(){
+  _renderBipOriginal();
+  const pin=document.getElementById('notaPecas'); if(!pin)return;
+  const box=pin.parentElement;
+  box.className='notafields';
+  box.innerHTML=`
+    <div>
+      <label>Peças cortadas <span class="req">*</span></label>
+      <input type="number" id="notaPecas" min="1" step="1" placeholder="ex: 500" autocomplete="off" />
+    </div>
+    <div>
+      <label>Valor faturado <span class="req">*</span></label>
+      <input type="number" id="notaValor" min="0" step="0.01" placeholder="ex: 3840,00" autocomplete="off" />
+    </div>`;
+  const np=document.getElementById('notaPecas'), nv=document.getElementById('notaValor'), si=document.getElementById('scanInput');
+  np.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();nv.focus();}});
+  nv.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(si)si.focus();}});
+  if(si) si.addEventListener('blur',()=>setTimeout(()=>{
+    const ae=document.activeElement;
+    if(ae&&(ae.id==='notaPecas'||ae.id==='notaValor'))return;
+    const x=document.getElementById('scanInput'); if(x&&viewActive('estacoes'))x.focus();
+  },10));
+  setTimeout(()=>np.focus(),50);
+}
+
+handleScan = async function(code){
+  const msg=document.getElementById('scanMsg'); if(!msg)return;
+  if(!activeBipStation){msg.className='scanmsg err';msg.textContent='Escolha a estação/máquina primeiro.';return;}
+  if(!code.trim())return;
+
+  if(activeBipStation==='nota'){
+    const pin=document.getElementById('notaPecas'), vin=document.getElementById('notaValor');
+    const pecas=pin?parseInt(pin.value,10):NaN;
+    const valor=vin?parseFloat(String(vin.value).replace(',','.')):NaN;
+    /* as DUAS são obrigatórias — sem elas não bipa */
+    if(!(pecas>0)){msg.className='scanmsg err';msg.textContent='⛔ Informe a quantidade de peças antes de bipar.';if(pin)pin.focus();return;}
+    if(!(valor>0)){msg.className='scanmsg err';msg.textContent='⛔ Informe o valor faturado antes de bipar.';if(vin)vin.focus();return;}
+    msg.className='scanmsg';msg.textContent='…';
+    const pr=await rpc('set_pecas',{p_token:currentUser.token,p_codigo:code.trim(),p_pecas:pecas});
+    if(!pr||pr.ok!==true){msg.className='scanmsg err';msg.textContent='⛔ '+((pr&&pr.msg)||'Não consegui gravar as peças');return;}
+    const vr=await rpc('set_valor',{p_token:currentUser.token,p_codigo:code.trim(),p_valor:valor});
+    if(!vr||vr.ok!==true){msg.className='scanmsg err';msg.textContent='⛔ '+((vr&&vr.msg)||'Não consegui gravar o valor');return;}
+    const r=await bipe(code,activeBipStation,activeBipOperador);
+    msg.className='scanmsg '+(r.ok?'ok':'err');
+    msg.textContent=r.msg+(r.ok?(' · '+NUM(pecas)+' peças · '+BRL(valor)):'');
+    if(r.ok){ if(pin)pin.value=''; if(vin)vin.value=''; if(pin)pin.focus(); }
+    return;
+  }
+  msg.className='scanmsg';msg.textContent='…';
+  const r=await bipe(code,activeBipStation,activeBipOperador);
+  msg.className='scanmsg '+(r.ok?'ok':'err');msg.textContent=r.msg;
+}
+
+/* ---------- dashboard ---------- */
+let fatPeriodo='30', fatChart=null;
+function fatRange(){
+  const fim=new Date(); fim.setHours(23,59,59,999);
+  if(fatPeriodo==='tudo') return {ini:new Date(0), fim, label:'desde o começo'};
+  const ini=new Date(); ini.setHours(0,0,0,0);
+  if(fatPeriodo==='7')  ini.setDate(ini.getDate()-6);
+  if(fatPeriodo==='30') ini.setDate(ini.getDate()-29);
+  return {ini, fim, label: fatPeriodo==='hoje'?'hoje':('últimos '+fatPeriodo+' dias')};
+}
+/* a data do faturamento é a do bipe da Nota (eventos.ts) — pedidos.nota é boolean */
+function faturados(){
+  const {ini,fim}=fatRange(), i=ini.getTime(), f=fim.getTime();
+  const out=[];
+  (PEDIDOS||[]).forEach(p=>{
+    if(p.valor==null || !p.nota) return;
+    const ts = tsEtapa(p.id,'nota');
+    if(ts==null || ts<i || ts>f) return;
+    out.push({...p, _ts:ts});
+  });
+  return out.sort((a,b)=>b._ts-a._ts);
+}
+function renderFaturamento(){
+  if(!document.getElementById('fatCards'))return;
+  document.querySelectorAll('[data-fat]').forEach(b=>b.classList.toggle('primary', b.dataset.fat===fatPeriodo));
+  const lista=faturados(), {label}=fatRange();
+  const total=lista.reduce((s,p)=>s+Number(p.valor||0),0);
+  const pecas=lista.reduce((s,p)=>s+Number(p.pecas||0),0);
+  const ticket=lista.length?total/lista.length:0;
+  const porPeca=pecas?total/pecas:0;
+
+  document.getElementById('fatCards').innerHTML=`
+    <div class="stat"><div class="k">Faturado — ${label}</div><div class="v money">${BRL(total)}</div></div>
+    <div class="stat"><div class="k">Pedidos faturados</div><div class="v">${lista.length}</div></div>
+    <div class="stat"><div class="k">Ticket médio</div><div class="v money">${BRL(ticket)}</div></div>
+    <div class="stat"><div class="k">Valor por peça</div><div class="v money">${BRL(porPeca)}</div></div>`;
+  document.getElementById('fatSub').textContent=`${lista.length} pedido(s) · ${label}`;
+
+  const porCli={};
+  lista.forEach(p=>{ porCli[p.cliente]=(porCli[p.cliente]||0)+Number(p.valor||0); });
+  const rank=Object.entries(porCli).sort((a,b)=>b[1]-a[1]);
+  const teto=rank.length?rank[0][1]:1;
+  document.getElementById('fatClientes').innerHTML = rank.length
+    ? rank.map(([n,v])=>`<div class="barrow"><div class="bn" title="${esc(n)}">${esc(n)}</div>
+        <div class="bt"><div class="bf" style="width:${Math.max(4,(v/teto)*100)}%"></div></div>
+        <div class="bv money">${BRL(v)}</div></div>`).join('')
+    : '<div class="empty" style="padding:26px">Nada faturado nesse período.</div>';
+
+  document.getElementById('fatTabela').innerHTML = lista.length
+    ? `<table><thead><tr><th>Data da nota</th><th>Cliente</th><th>Nº</th><th>Peças</th><th>Valor</th><th>R$/peça</th></tr></thead><tbody>
+       ${lista.map(p=>`<tr onclick="abrirFicha('${p.id}')" style="cursor:pointer">
+          <td class="ref">${new Date(p._ts).toLocaleDateString('pt-BR')}</td><td class="cli">${esc(p.cliente)}</td>
+          <td class="ref">${esc(p.numero)||'—'}</td><td>${NUM(p.pecas)}</td>
+          <td class="money" style="font-weight:620">${BRL(p.valor)}</td>
+          <td class="ref money">${p.pecas?BRL(p.valor/p.pecas):'—'}</td></tr>`).join('')}
+       </tbody></table>`
+    : '<div class="empty"><div class="big">Nenhum pedido faturado no período</div>O valor entra quando a Nota é bipada.</div>';
+
+  const cv=document.getElementById('fatChart'); if(!cv||typeof Chart==='undefined')return;
+  const porDia={};
+  lista.forEach(p=>{ const d=new Date(p._ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}); porDia[d]=(porDia[d]||0)+Number(p.valor||0); });
+  const labels=Object.keys(porDia).reverse(), dados=labels.map(l=>porDia[l]);
+  const accent=getComputedStyle(document.body).getPropertyValue('--accent').trim()||'#2f6bff';
+  if(fatChart){fatChart.destroy();fatChart=null;}
+  fatChart=new Chart(cv,{type:'bar',
+    data:{labels,datasets:[{data:dados,backgroundColor:accent,borderRadius:6,maxBarThickness:38}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{label:c=>BRL(c.parsed.y)}}},
+      scales:{y:{beginAtZero:true,ticks:{precision:0,maxTicksLimit:6,callback:v=>'R$ '+Number(v).toLocaleString('pt-BR',{maximumFractionDigits:0})}},x:{grid:{display:false}}}}});
+}
+
+/* ---------- a ficha agora mostra o valor ---------- */
+const _abrirFichaP1 = abrirFicha;
+abrirFicha = function(id){
+  _abrirFichaP1(id);
+  const p=PEDIDOS.find(x=>x.id===id); if(!p)return;
+  const grid=document.querySelector('#fichaBox .fgrid'); if(!grid)return;
+  const obs=grid.querySelector('.fitem.full');
+  const v=document.createElement('div');
+  v.className='fitem';
+  v.innerHTML=`<div class="fk">Valor faturado</div><div class="fv${p.valor!=null?'':' vazio'}">${p.valor!=null?BRL(p.valor):'não informado'}</div>`;
+  if(obs) grid.insertBefore(v,obs); else grid.appendChild(v);
+}
+
+/* ---------- navegação / render ---------- */
+const _goP1 = go;
+go = function(v){
+  _goP1(v);
+  if(v==='clientes'){ loadClientes().then(renderCadastros); renderCadastros(); }
+  if(v==='faturamento') setTimeout(renderFaturamento,60);
+  if(v==='lancar') preencherSelectClientes();
+}
+const _renderAllP1 = renderAll;
+renderAll = function(){
+  _renderAllP1();
+  if(viewActive('clientes'))    renderCadastros();
+  if(viewActive('faturamento')) renderFaturamento();
+  preencherSelectClientes();
+}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-fat]');
+  if(b){ fatPeriodo=b.dataset.fat; renderFaturamento(); }
+});
+document.addEventListener('input', e=>{ if(e.target.id==='cadBusca')  renderCadastros(); });
+document.addEventListener('change',e=>{ if(e.target.id==='cadVerArq') renderCadastros(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharCadastro(); });
+setTimeout(()=>{ const b=document.getElementById('cadSalvar'); if(b) b.addEventListener('click',salvarCadastro); },0);
 
 boot();
 </script>
