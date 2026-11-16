@@ -853,7 +853,9 @@ function printViaIframe(node,pageCss,extraCss){
   if(!node){alert('Escolha um pedido primeiro.');return;}
   const old=document.getElementById('printFrame'); if(old)old.remove();
   const ifr=document.createElement('iframe'); ifr.id='printFrame';
-  ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  // O preview do Chrome continua lendo este documento após print() retornar.
+  // Um iframe sem área e removido em 2 s pode produzir uma folha vazia.
+  ifr.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0';
   document.body.appendChild(ifr);
   const doc=ifr.contentWindow.document;
   const baseCss=document.querySelector('style').textContent;
@@ -863,8 +865,9 @@ function printViaIframe(node,pageCss,extraCss){
     '@media print{@page{'+pageCss+'}html,body{margin:0;padding:0;background:#fff}*{visibility:visible!important}'+(extraCss||'')+'}'+
     '</style></head><body>'+node.outerHTML+'</body></html>');
   doc.close();
-  function go(){try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){console.error('print',e);}
-    setTimeout(function(){const f=document.getElementById('printFrame');if(f)f.remove();},2000);}
+  function cleanup(){if(ifr.isConnected)ifr.remove();}
+  ifr.contentWindow.addEventListener('afterprint',cleanup,{once:true});
+  function go(){try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){console.error('print',e);cleanup();}}
   // dá um tempo pro SVG do código de barras e o layout renderizarem dentro do iframe
   if(ifr.contentWindow.document.readyState==='complete')setTimeout(go,350);
   else ifr.contentWindow.onload=function(){setTimeout(go,350);};
