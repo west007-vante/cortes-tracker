@@ -620,15 +620,27 @@ function subscribeRealtime(){
 }
 
 /* ---------- dados ---------- */
+async function fetchPaged(table, orderColumn, ascending, maxRows=Infinity){
+  const rows=[];
+  while(rows.length<maxRows){
+    const pageSize=Math.min(1000,maxRows-rows.length);
+    const {data,error}=await sb.from(table).select('*')
+      .order(orderColumn,{ascending})
+      .range(rows.length,rows.length+pageSize-1);
+    if(error)throw error;
+    rows.push(...(data||[]));
+    if(!data||data.length<pageSize)break;
+  }
+  return rows;
+}
 async function loadAll(){
   if(!canPainel())return;
   try{
     const [r1,r2]=await Promise.all([
-      sb.from('pedidos').select('*').order('created_at',{ascending:true}),
-      sb.from('eventos').select('*').order('ts',{ascending:false}).limit(1500)
+      fetchPaged('pedidos','created_at',true),
+      fetchPaged('eventos','ts',false,1500)
     ]);
-    if(r1.error)throw r1.error; if(r2.error)throw r2.error;
-    PEDIDOS=r1.data||[]; EVENTOS=r2.data||[]; setConn(true); renderAll();
+    PEDIDOS=r1; EVENTOS=r2; setConn(true); renderAll();
   }catch(err){console.error('loadAll',err);setConn(false,err.message||String(err));}
 }
 function setConn(ok,msg){const dot=document.getElementById('connDot'),pill=document.getElementById('connPill');
